@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pinecall Voice Widget</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0a0a0f; color: #e0e0e0;
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        }
+        .demo { text-align: center; max-width: 500px; padding: 40px; }
+        h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 10px;
+             background: linear-gradient(135deg, #7c3aed, #2563eb);
+             -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        p { color: #666; font-size: 14px; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <div class="demo">
+        <h1>Pinecall Voice Widget</h1>
+        <p>Click the orb in the bottom-right corner to start a call.</p>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
