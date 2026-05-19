@@ -73,10 +73,7 @@ npm install @pinecall/voice-core
 ```ts
 import { VoiceSession } from "@pinecall/voice-core";
 
-const session = new VoiceSession({
-  agent: "mara",
-  server: "https://mara.app.pinecall.io",
-});
+const session = new VoiceSession({ agent: "mara" });
 
 // React-style: subscribe to all state changes
 session.subscribe(() => {
@@ -112,8 +109,12 @@ Creates a new voice session instance. Does **not** connect automatically.
 interface VoiceSessionOptions {
   /** Agent ID to connect to */
   agent: string;
-  /** EventServer URL (e.g. "https://florencia.app.pinecall.io") */
-  server: string;
+  /**
+   * Pinecall API base URL for token exchange.
+   * Default: "https://voice.pinecall.io"
+   * Only override for self-hosted deployments.
+   */
+  server?: string;
 }
 ```
 
@@ -412,10 +413,7 @@ The client sends these through the DataChannel:
 ```ts
 import { VoiceSession } from "@pinecall/voice-core";
 
-const session = new VoiceSession({
-  agent: "florencia",
-  server: "https://florencia.app.pinecall.io",
-});
+const session = new VoiceSession({ agent: "florencia" });
 
 // UI binding
 const btn = document.getElementById("call-btn")!;
@@ -450,8 +448,8 @@ session.addEventListener("phase", (e) => {
 import { useSyncExternalStore, useCallback, useState, useEffect } from "react";
 import { VoiceSession } from "@pinecall/voice-core";
 
-function useVoiceSession(agent: string, server: string) {
-  const [session] = useState(() => new VoiceSession({ agent, server }));
+function useVoiceSession(agent: string) {
+  const [session] = useState(() => new VoiceSession({ agent }));
 
   const state = useSyncExternalStore(
     useCallback((cb) => session.subscribe(cb), [session]),
@@ -470,8 +468,8 @@ function useVoiceSession(agent: string, server: string) {
 import { ref, onUnmounted } from "vue";
 import { VoiceSession } from "@pinecall/voice-core";
 
-export function useVoiceSession(agent: string, server: string) {
-  const session = new VoiceSession({ agent, server });
+export function useVoiceSession(agent: string) {
+  const session = new VoiceSession({ agent });
   const state = ref(session.getState());
 
   session.subscribe(() => {
@@ -490,8 +488,8 @@ export function useVoiceSession(agent: string, server: string) {
 import { readable } from "svelte/store";
 import { VoiceSession } from "@pinecall/voice-core";
 
-export function createVoiceSession(agent: string, server: string) {
-  const session = new VoiceSession({ agent, server });
+export function createVoiceSession(agent: string) {
+  const session = new VoiceSession({ agent });
 
   const state = readable(session.getState(), (set) => {
     return session.subscribe(() => set(session.getState()));

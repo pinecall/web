@@ -73,8 +73,12 @@ export type VoiceWidgetPreset =
 export interface VoiceWidgetProps {
   /** Agent ID to connect to */
   agent: string;
-  /** EventServer URL (e.g. "https://florencia.app.pinecall.io") */
-  server: string;
+  /**
+   * Pinecall API base URL for token exchange.
+   * Default: `"https://voice.pinecall.io"`.
+   * Only override for self-hosted deployments.
+   */
+  server?: string;
   /** Display name shown in status label. Default: "Agent" */
   name?: string;
   /** Idle label shown on hover. Default: "Talk to {name}" */

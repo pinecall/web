@@ -139,17 +139,21 @@ export class VoiceSession extends EventTarget {
         messages: [],
       });
       this.botWords = {};
-      const base = this.opts.server.replace(/\/$/, "");
+      const base = (this.opts.server ?? "https://voice.pinecall.io").replace(
+        /\/$/,
+        "",
+      );
 
       const tRes = await fetch(
         `${base}/webrtc/token?agent_id=${encodeURIComponent(this.opts.agent)}`,
       );
       if (!tRes.ok) throw new Error(`Token: ${tRes.status}`);
       const { token, server: voiceServer } = await tRes.json();
+      if (!voiceServer) throw new Error("Token response missing server URL");
 
       let ice: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
       try {
-        const r = await fetch(`${voiceServer || base}/webrtc/ice-servers`);
+        const r = await fetch(`${voiceServer}/webrtc/ice-servers`);
         if (r.ok) {
           const d = await r.json();
           ice = d.iceServers || d.ice_servers || ice;
@@ -222,7 +226,7 @@ export class VoiceSession extends EventTarget {
         };
       });
 
-      const res = await fetch(`${voiceServer || base}/webrtc/offer`, {
+      const res = await fetch(`${voiceServer}/webrtc/offer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
