@@ -1,10 +1,72 @@
-# @pinecall/voice-core
+<h1 align="center">@pinecall/voice-core</h1>
 
-Framework-agnostic WebRTC voice session client for [Pinecall](https://pinecall.io) agents. Zero dependencies. Works with React, Vue, Svelte, vanilla JS, or any framework.
+<p align="center">
+  <strong>Framework-agnostic WebRTC voice session client for Pinecall agents.</strong><br/>
+  Zero dependencies. Works with React, Vue, Svelte, vanilla JS, or any framework.
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#api-reference">API</a> ·
+  <a href="#events-eventtarget">Events</a> ·
+  <a href="#datachannel-protocol">Protocol</a> ·
+  <a href="#usage-patterns">Framework Patterns</a> ·
+  <a href="#typescript-types">Types</a>
+</p>
+
+---
+
+## Table of Contents
+
+- [Install](#install)
+- [Quick Start](#quick-start)
+- [API Reference](#api-reference)
+  - [Constructor](#new-voicesessionoptions)
+  - [Methods](#methods)
+    - [connect](#sessionconnect-promisevoid)
+    - [disconnect](#sessiondisconnect-void)
+    - [toggleMute](#sessiontogglemute-void)
+    - [setMuted](#sessionsetmutedmuted-boolean-void)
+    - [getState](#sessiongetstate-readonlyvoicesessionstate)
+    - [subscribe](#sessionsubscribelistener---void)
+    - [destroy](#sessiondestroy-void)
+  - [State](#state)
+    - [Call Phases](#call-phases)
+    - [Transcript Messages](#transcript-messages)
+  - [Events (EventTarget)](#events-eventtarget)
+    - [status](#status--connection-status-changed)
+    - [phase](#phase--call-phase-changed)
+    - [message](#message--transcript-message-added-or-updated)
+    - [error](#error--an-error-occurred)
+    - [change](#change--any-state-change)
+    - [event (raw)](#event--raw-datachannel-event)
+  - [DataChannel Protocol](#datachannel-protocol)
+    - [Speech Detection (STT)](#speech-detection-stt)
+    - [Turn Detection](#turn-detection)
+    - [Bot Speech (TTS)](#bot-speech-tts)
+    - [Audio Metrics](#audio-metrics)
+    - [LLM / Tool Events](#llm--tool-events-via-event-listener)
+    - [Client → Server](#client--server-messages)
+  - [Usage Patterns](#usage-patterns)
+    - [Vanilla JavaScript](#vanilla-javascript)
+    - [React](#react-with-usesyncexternalstore)
+    - [Vue 3](#vue-3-composable)
+    - [Svelte](#svelte-store)
+  - [WebRTC Connection Flow](#webrtc-connection-flow)
+- [TypeScript Types](#typescript-types)
+
+---
+
+## Install
 
 ```bash
 npm install @pinecall/voice-core
 ```
+
+> Zero runtime dependencies. Browser-only (requires `RTCPeerConnection`, `getUserMedia`).
+
+---
 
 ## Quick Start
 

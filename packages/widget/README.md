@@ -1,12 +1,54 @@
-# @pinecall/voice-widget
+<h1 align="center">@pinecall/voice-widget</h1>
 
-Drop-in React voice widget for [Pinecall](https://pinecall.io) agents. Animated orb UI with real-time transcript, theme presets, and full customization.
+<p align="center">
+  <strong>Drop-in React voice widget for Pinecall agents.</strong><br/>
+  Animated orb UI with real-time transcript, theme presets, and full customization.<br/>
+  Built on <a href="https://www.npmjs.com/package/@pinecall/voice-core"><code>@pinecall/voice-core</code></a>.
+</p>
 
-Built on top of [`@pinecall/voice-core`](https://www.npmjs.com/package/@pinecall/voice-core).
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#props">Props</a> ·
+  <a href="#theme-presets">Presets</a> ·
+  <a href="#theme-customization">Theming</a> ·
+  <a href="#usevoicesession-hook">Hook</a> ·
+  <a href="#advanced-usage">Advanced</a>
+</p>
+
+---
+
+## Table of Contents
+
+- [Install](#install)
+- [Quick Start](#quick-start)
+- [Props](#props)
+- [Theme Presets](#theme-presets)
+- [Theme Customization](#theme-customization)
+  - [VoiceWidgetTheme Reference](#voicewidgettheme-reference)
+  - [CSS Override (No JavaScript)](#css-override-no-javascript)
+- [`useVoiceSession` Hook](#usevoicesession-hook)
+- [Transcript Messages](#transcript-messages)
+  - [User Messages](#user-messages)
+  - [Bot Messages (Word-by-Word)](#bot-messages-word-by-word)
+- [Orb Visual States](#orb-visual-states)
+- [Advanced Usage](#advanced-usage)
+  - [Status Change Callback](#status-change-callback)
+  - [Accessing Raw Events (Core Session)](#accessing-raw-events-core-session)
+  - [Creating Custom Presets](#creating-custom-presets)
+- [Exports](#exports)
+
+---
+
+## Install
 
 ```bash
 npm install @pinecall/voice-widget react react-dom
 ```
+
+> `react` and `react-dom` (≥18) are peer dependencies.
+
+---
 
 ## Quick Start
 
