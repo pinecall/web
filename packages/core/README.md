@@ -503,34 +503,9 @@ export function createVoiceSession(agent: string) {
 
 ### WebRTC Connection Flow
 
-```
-Client                          EventServer                    Voice Server
-  │                                 │                              │
-  │  GET /webrtc/token?agent_id=X   │                              │
-  │ ──────────────────────────────→  │                              │
-  │  { token, server }              │                              │
-  │ ←──────────────────────────────  │                              │
-  │                                 │                              │
-  │  GET /webrtc/ice-servers        │                              │
-  │ ──────────────────────────────────────────────────────────────→ │
-  │  { iceServers: [...] }          │                              │
-  │ ←────────────────────────────────────────────────────────────── │
-  │                                 │                              │
-  │  getUserMedia (mic)             │                              │
-  │  RTCPeerConnection              │                              │
-  │  createDataChannel("events")    │                              │
-  │  createOffer + ICE gathering    │                              │
-  │                                 │                              │
-  │  POST /webrtc/offer             │                              │
-  │  { sdp, type, token }           │                              │
-  │ ──────────────────────────────────────────────────────────────→ │
-  │  { sdp, type } (answer)         │                              │
-  │ ←────────────────────────────────────────────────────────────── │
-  │                                 │                              │
-  │  setRemoteDescription           │                              │
-  │  ═══ WebRTC connected ═══       │                              │
-  │  DataChannel: events ←→         │         Audio ←→              │
-```
+<p align="center">
+  <img src="docs/webrtc-flow.png" alt="WebRTC Connection Flow" width="700" />
+</p>
 
 ---
 
