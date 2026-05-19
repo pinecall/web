@@ -12,9 +12,13 @@ import type { TranscriptMessage } from "@pinecall/voice-core";
 import type { VoiceWidgetProps, VoiceWidgetTheme } from "./types";
 import { useVoiceSession } from "./useVoiceSession";
 import { WIDGET_CSS } from "./styles";
+import { PRESETS } from "./presets";
 
 /** Map theme keys → CSS custom property names */
 const THEME_VAR_MAP: Record<keyof VoiceWidgetTheme, string> = {
+  orbFrom: "--vw-orb-from",
+  orbMid: "--vw-orb-mid",
+  orbTo: "--vw-orb-to",
   colorConnecting: "--vw-color-connecting",
   colorActive: "--vw-color-active",
   colorUserSpeaking: "--vw-color-user-speaking",
@@ -26,6 +30,7 @@ const THEME_VAR_MAP: Record<keyof VoiceWidgetTheme, string> = {
   panelBorder: "--vw-panel-border",
   bubbleBotBg: "--vw-bubble-bot-bg",
   bubbleBotColor: "--vw-bubble-bot-color",
+  bubbleUserColor: "--vw-bubble-user-color",
   labelBg: "--vw-label-bg",
   labelColor: "--vw-label-color",
 };
@@ -51,22 +56,24 @@ export function VoiceWidget({
   name = "Agent",
   label,
   className,
+  preset = "dark",
   theme,
   onStatusChange,
 }: VoiceWidgetProps) {
   const session = useVoiceSession({ server, agent });
   const [panelOpen, setPanelOpen] = useState(false);
 
-  /** Build inline style object from theme overrides */
+  /** Merge preset + custom theme overrides → CSS custom properties */
   const themeStyle = useMemo(() => {
-    if (!theme) return undefined;
+    const base = PRESETS[preset] ?? PRESETS.dark;
+    const merged = { ...base, ...theme };
     const vars: Record<string, string> = {};
     for (const [key, cssVar] of Object.entries(THEME_VAR_MAP)) {
-      const val = theme[key as keyof VoiceWidgetTheme];
+      const val = merged[key as keyof VoiceWidgetTheme];
       if (val !== undefined) vars[cssVar] = val;
     }
     return Object.keys(vars).length > 0 ? vars : undefined;
-  }, [theme]);
+  }, [preset, theme]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 

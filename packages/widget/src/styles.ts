@@ -14,6 +14,11 @@
 export const WIDGET_CSS = /* css */ `
 /* ── Container + CSS custom-property defaults ── */
 .vw-wrap {
+  /* ── Orb idle gradient (RGB triplets) ── */
+  --vw-orb-from: 255, 255, 255;
+  --vw-orb-mid: 240, 238, 231;
+  --vw-orb-to: 184, 181, 168;
+
   /* ── State colors (RGB triplets) ── */
   --vw-color-connecting: 245, 158, 11;
   --vw-color-active: 76, 175, 80;
@@ -28,6 +33,7 @@ export const WIDGET_CSS = /* css */ `
   --vw-panel-border: rgba(255, 255, 255, .08);
   --vw-bubble-bot-bg: rgba(18, 16, 22, .9);
   --vw-bubble-bot-color: #e8e4f0;
+  --vw-bubble-user-color: #e0d4f7;
   --vw-label-bg: #181818;
   --vw-label-color: #fff;
 
@@ -44,7 +50,11 @@ export const WIDGET_CSS = /* css */ `
   height: 64px;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 30% 30%, #fff, #f0eee7 35%, #d9d6cb 70%, #b8b5a8);
+    radial-gradient(circle at 30% 30%,
+      rgb(var(--vw-orb-from)),
+      rgb(var(--vw-orb-mid)) 35%,
+      rgba(var(--vw-orb-to), .85) 70%,
+      rgb(var(--vw-orb-to)));
   box-shadow:
     0 1px 0 rgba(255, 255, 255, .9) inset,
     0 -10px 24px rgba(var(--vw-ring-color), .15) inset,
@@ -224,7 +234,7 @@ export const WIDGET_CSS = /* css */ `
 .vw-bubble.vw-bubble--user {
   background: rgba(var(--vw-color-accent), .15);
   border: 1px solid rgba(var(--vw-color-accent), .25);
-  color: #e0d4f7;
+  color: var(--vw-bubble-user-color);
   border-radius: 14px 14px 4px 14px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -407,7 +417,7 @@ export const WIDGET_CSS = /* css */ `
   align-self: flex-end;
   background: rgba(var(--vw-color-accent), .15);
   border: 1px solid rgba(var(--vw-color-accent), .2);
-  color: #d4c4f0;
+  color: var(--vw-bubble-user-color);
   border-radius: 12px 12px 4px 12px;
 }
 
