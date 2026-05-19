@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pinecall Voice Widget</title>
+    <title>Pinecall Voice Widget — Theme Presets</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -12,16 +12,39 @@
             min-height: 100vh; display: flex; align-items: center; justify-content: center;
         }
         .demo { text-align: center; max-width: 500px; padding: 40px; }
-        h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 10px;
-             background: linear-gradient(135deg, #7c3aed, #2563eb);
-             -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        p { color: #666; font-size: 14px; line-height: 1.6; }
+        h1 {
+            font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px;
+            background: linear-gradient(135deg, #7c3aed, #2563eb);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        p { color: #666; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+        .preset-bar {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 6px; z-index: 200;
+            background: rgba(20, 18, 28, .85);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 6px; border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .08);
+            box-shadow: 0 8px 32px -8px rgba(0, 0, 0, .5);
+        }
+        .preset-chip {
+            padding: 6px 14px; border-radius: 999px; border: none;
+            background: transparent; color: rgba(255, 255, 255, .5);
+            font-size: 12px; font-weight: 500; cursor: pointer;
+            text-transform: capitalize; transition: all .15s;
+            font-family: inherit; letter-spacing: .02em;
+        }
+        .preset-chip:hover { color: rgba(255, 255, 255, .8); }
+        .preset-chip.active {
+            background: rgba(255, 255, 255, .12); color: #fff;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .2);
+        }
     </style>
 </head>
 <body>
     <div class="demo">
         <h1>Pinecall Voice Widget</h1>
-        <p>Click the orb in the bottom-right corner to start a call.</p>
+        <p>Pick a preset above, then click the orb to start a call.</p>
     </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
