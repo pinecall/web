@@ -20,12 +20,7 @@ npm install @pinecall/voice-widget
 ```tsx
 import { VoiceWidget } from "@pinecall/voice-widget";
 
-<VoiceWidget
-  agent="mara"
-  server="https://mara.app.pinecall.io"
-  name="Mara"
-  preset="midnight"
-/>
+<VoiceWidget agent="mara" name="Mara" preset="midnight" />
 ```
 
 ### Any Framework (Core)
@@ -37,7 +32,7 @@ npm install @pinecall/voice-core
 ```ts
 import { VoiceSession } from "@pinecall/voice-core";
 
-const session = new VoiceSession({ agent: "mara", server: "https://mara.app.pinecall.io" });
+const session = new VoiceSession({ agent: "mara" });
 session.subscribe(() => console.log(session.getState()));
 await session.connect();
 ```

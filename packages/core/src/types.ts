@@ -30,6 +30,12 @@ export interface VoiceSessionState {
 export interface VoiceSessionOptions {
   /** Agent ID to connect to */
   agent: string;
-  /** EventServer URL (e.g. "https://florencia.app.pinecall.io") */
-  server: string;
+  /**
+   * Pinecall API base URL for token exchange.
+   * Default: `"https://voice.pinecall.io"`.
+   *
+   * The SDK fetches a WebRTC token from `GET {server}/webrtc/token?agent_id=X`.
+   * The response includes the actual voice server URL for ICE + SDP negotiation.
+   */
+  server?: string;
 }

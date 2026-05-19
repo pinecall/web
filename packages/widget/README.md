@@ -59,7 +59,6 @@ function App() {
   return (
     <VoiceWidget
       agent="mara"
-      server="https://mara.app.pinecall.io"
       name="Mara"
     />
   );
@@ -77,7 +76,7 @@ That's it. The widget renders a floating orb in the bottom-right corner. Click t
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `agent` | `string` | **required** | Agent ID to connect to |
-| `server` | `string` | **required** | EventServer URL |
+| `server` | `string` | `"https://voice.pinecall.io"` | Pinecall API base URL (override for self-hosted) |
 | `name` | `string` | `"Agent"` | Display name shown in status label during calls |
 | `label` | `string` | `"Talk to {name}"` | Tooltip shown on hover when idle |
 | `preset` | `VoiceWidgetPreset` | `"dark"` | Theme preset name (see [Presets](#theme-presets)) |
@@ -101,10 +100,10 @@ Five built-in presets, each setting all 17 CSS custom properties:
 
 ```tsx
 // Use a preset
-<VoiceWidget preset="midnight" agent="mara" server="..." />
+<VoiceWidget preset="midnight" agent="mara" />
 
 // Preset + individual override
-<VoiceWidget preset="aurora" theme={{ ringColor: "255, 100, 50" }} agent="mara" server="..." />
+<VoiceWidget preset="aurora" theme={{ ringColor: "255, 100, 50" }} agent="mara" />
 
 // Access preset values programmatically
 import { PRESETS } from "@pinecall/voice-widget";
@@ -120,7 +119,6 @@ Every visual aspect is controlled by CSS custom properties. Pass a `theme` objec
 ```tsx
 <VoiceWidget
   agent="mara"
-  server="https://mara.app.pinecall.io"
   theme={{
     // Orb idle gradient (RGB triplets)
     orbFrom: "200, 150, 255",   // highlight center
@@ -214,7 +212,6 @@ function CustomVoice() {
     setMuted,       // (muted: boolean) => void
   } = useVoiceSession({
     agent: "mara",
-    server: "https://mara.app.pinecall.io",
   });
 
   return (
@@ -304,7 +301,6 @@ The orb changes color and animation based on the call phase:
 ```tsx
 <VoiceWidget
   agent="mara"
-  server="..."
   onStatusChange={(status) => {
     if (status === "connected") analytics.track("call_started");
     if (status === "idle") analytics.track("call_ended");
@@ -324,7 +320,6 @@ import { VoiceSession } from "@pinecall/voice-core";
 function AdvancedVoice() {
   const [session] = useState(() => new VoiceSession({
     agent: "mara",
-    server: "https://mara.app.pinecall.io",
   }));
 
   useEffect(() => {
@@ -363,7 +358,6 @@ const brandTheme: Partial<VoiceWidgetTheme> = {
 
 <VoiceWidget
   agent="mara"
-  server="..."
   preset="midnight"
   theme={brandTheme}
 />

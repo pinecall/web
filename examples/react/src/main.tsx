@@ -23,7 +23,6 @@ function Demo() {
       </div>
       <VoiceWidget
         agent="mara"
-        server="https://mara.app.pinecall.io"
         name="Mara"
         label="Talk to Mara"
         preset={preset}

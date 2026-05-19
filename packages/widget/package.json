@@ -1,6 +1,6 @@
 {
   "name": "@pinecall/voice-widget",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "React voice widget for Pinecall agents",
   "license": "MIT",
   "type": "module",
@@ -20,7 +20,10 @@
     },
     "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
@@ -45,5 +48,13 @@
   "publishConfig": {
     "access": "public"
   },
-  "keywords": ["webrtc", "voice", "ai", "agent", "react", "widget", "pinecall"]
+  "keywords": [
+    "webrtc",
+    "voice",
+    "ai",
+    "agent",
+    "react",
+    "widget",
+    "pinecall"
+  ]
 }
