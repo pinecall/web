@@ -70,6 +70,46 @@ export type VoiceWidgetPreset =
   | "sunset"
   | "light";
 
+/**
+ * A language preset defining voice/STT/language config for a specific locale.
+ *
+ * @example
+ * ```ts
+ * const spanish: LanguagePreset = {
+ *   label: "Español",
+ *   flag: "🇪🇸",
+ *   voice: "coral",
+ *   stt: "deepgram",
+ *   language: "es",
+ *   greeting: "¡Hola! ¿En qué puedo ayudarte?",
+ * };
+ * ```
+ */
+export interface LanguagePreset {
+  /** Display label (e.g. "Español", "English") */
+  label?: string;
+  /** Flag emoji (e.g. "🇪🇸", "🇺🇸") */
+  flag?: string;
+  /** Voice ID override (e.g. "elevenlabs:abc123") */
+  voice?: string;
+  /**
+   * STT override — string shortcut or full config object.
+   * @example "deepgram"
+   * @example { provider: "deepgram", model: "nova-3", language: "es" }
+   */
+  stt?: string | Record<string, unknown>;
+  /** Language code for STT (e.g. "es", "en") */
+  language?: string;
+  /**
+   * Turn detection override — string shortcut or config object.
+   * @example "smart_turn"
+   * @example { mode: "smart_turn", threshold: 0.7 }
+   */
+  turnDetection?: string | Record<string, unknown>;
+  /** Custom greeting in this language */
+  greeting?: string;
+}
+
 export interface VoiceWidgetProps {
   /** Agent ID to connect to */
   agent: string;
@@ -83,6 +123,34 @@ export interface VoiceWidgetProps {
   name?: string;
   /** Idle label shown on hover. Default: "Talk to {name}" */
   label?: string;
+  /**
+   * Initial session config overrides (language, voice, stt, turnDetection, greeting).
+   * Merged with the selected language preset if `languages` is provided.
+   */
+  config?: Record<string, unknown>;
+  /** Call metadata sent to the server. */
+  metadata?: Record<string, unknown>;
+  /**
+   * Language presets for multi-language support.
+   * Keys are language codes (e.g. "es", "en"), values are preset configs.
+   * When provided with ≥2 entries, a language selector appears in the widget panel.
+   *
+   * @example
+   * ```tsx
+   * <VoiceWidget
+   *   languages={{
+   *     en: { label: "English", flag: "🇺🇸", voice: "alloy", language: "en" },
+   *     es: { label: "Español", flag: "🇪🇸", voice: "coral", language: "es" },
+   *   }}
+   *   defaultLanguage="en"
+   * />
+   * ```
+   */
+  languages?: Record<string, LanguagePreset>;
+  /** Default language key (must match a key in `languages`). Uses the first key if omitted. */
+  defaultLanguage?: string;
+  /** Called when the user selects a different language. */
+  onLanguageChange?: (lang: string, preset: LanguagePreset) => void;
   /** Extra class name on the root wrapper */
   className?: string;
   /**

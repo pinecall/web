@@ -459,5 +459,89 @@ export const WIDGET_CSS = /* css */ `
   .vw-bubble { bottom: 68px; max-width: 220px; font-size: 12px; }
   .vw-tp { width: 280px; max-height: 320px; bottom: 68px; }
   .vw-tp-btn { right: 60px; }
+  .vw-lang-bar { bottom: 64px; }
+}
+
+/* ══════════════════════════════════════════════════
+   LANGUAGE SELECTOR — pill bar above the orb
+   Hidden by default, shown on hover or during active call
+   ══════════════════════════════════════════════════ */
+
+.vw-lang-bar {
+  position: absolute;
+  bottom: 76px;
+  right: 0;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(16, 14, 20, .75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 999px;
+  z-index: 2;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Hidden by default — revealed on hover */
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+/* Show on hover (pre-call) */
+.vw-wrap:hover .vw-lang-bar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* Always visible during active call */
+.vw-wrap.is-live .vw-lang-bar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.vw-lang-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, .5);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+  letter-spacing: .02em;
+}
+
+.vw-lang-pill:hover {
+  color: rgba(255, 255, 255, .8);
+  background: rgba(255, 255, 255, .06);
+}
+
+.vw-lang-pill--active {
+  background: rgba(var(--vw-color-accent), .2);
+  border-color: rgba(var(--vw-color-accent), .3);
+  color: #fff;
+  font-weight: 600;
+}
+
+.vw-lang-pill--active:hover {
+  background: rgba(var(--vw-color-accent), .25);
+}
+
+.vw-lang-flag {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.vw-lang-code {
+  line-height: 1;
 }
 `;
