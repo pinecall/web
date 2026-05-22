@@ -29,6 +29,15 @@ export function useVoiceSession(opts: VoiceSessionOptions) {
     (muted: boolean) => session.setMuted(muted),
     [session],
   );
+  const configure = useCallback(
+    (config: Record<string, unknown>) => session.configure(config),
+    [session],
+  );
+  const updateOptions = useCallback(
+    (patch: Partial<Pick<VoiceSessionOptions, "config" | "metadata">>) =>
+      session.updateOptions(patch),
+    [session],
+  );
 
   return {
     ...state,
@@ -36,5 +45,7 @@ export function useVoiceSession(opts: VoiceSessionOptions) {
     disconnect,
     toggleMute,
     setMuted,
+    configure,
+    updateOptions,
   };
 }

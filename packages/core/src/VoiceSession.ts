@@ -37,7 +37,7 @@ export class VoiceSession extends EventTarget {
   private startedAt = 0;
   private botWords: Record<string, string[]> = {};
 
-  constructor(private readonly opts: VoiceSessionOptions) {
+  constructor(private opts: VoiceSessionOptions) {
     super();
   }
 
@@ -226,14 +226,22 @@ export class VoiceSession extends EventTarget {
         };
       });
 
+      const offerBody: Record<string, unknown> = {
+        sdp: pc.localDescription!.sdp,
+        type: pc.localDescription!.type,
+        token,
+      };
+      if (this.opts.config && Object.keys(this.opts.config).length > 0) {
+        offerBody.config = this.opts.config;
+      }
+      if (this.opts.metadata && Object.keys(this.opts.metadata).length > 0) {
+        offerBody.metadata = this.opts.metadata;
+      }
+
       const res = await fetch(`${voiceServer}/webrtc/offer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sdp: pc.localDescription!.sdp,
-          type: pc.localDescription!.type,
-          token,
-        }),
+        body: JSON.stringify(offerBody),
       });
       if (!res.ok) throw new Error(`Offer: ${res.status}`);
       const answer = await res.json();
@@ -428,6 +436,37 @@ export class VoiceSession extends EventTarget {
       dc.send(JSON.stringify({ action: muted ? "mute" : "unmute" }));
     }
     this.setState({ isMuted: muted });
+  }
+
+  /**
+   * Send a configuration update via DataChannel during an active call.
+   * Use this for mid-call language/voice/STT switching.
+   *
+   * @example
+   * ```ts
+   * session.configure({ voice: "coral", stt: "deepgram", language: "es" });
+   * ```
+   */
+  configure(config: Record<string, unknown>): void {
+    const dc = this.dc;
+    if (dc && dc.readyState === "open") {
+      dc.send(JSON.stringify({ action: "configure", ...config }));
+    }
+  }
+
+  /**
+   * Update session options before the next `connect()` call.
+   * Has no effect on an already-connected session — use `configure()` for that.
+   */
+  updateOptions(
+    patch: Partial<Pick<VoiceSessionOptions, "config" | "metadata">>,
+  ): void {
+    if (patch.config !== undefined) {
+      this.opts = { ...this.opts, config: patch.config };
+    }
+    if (patch.metadata !== undefined) {
+      this.opts = { ...this.opts, metadata: patch.metadata };
+    }
   }
 
   /** Tear down the session and clear subscribers. After this, do not reuse. */

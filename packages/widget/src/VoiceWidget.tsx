@@ -55,12 +55,46 @@ export function VoiceWidget({
   server,
   name = "Agent",
   label,
+  config: userConfig,
+  metadata,
+  languages,
+  defaultLanguage,
+  onLanguageChange,
   className,
   preset = "dark",
   theme,
   onStatusChange,
 }: VoiceWidgetProps) {
-  const session = useVoiceSession({ server, agent });
+  // ── Language state ──
+  const langKeys = useMemo(
+    () => (languages ? Object.keys(languages) : []),
+    [languages],
+  );
+  const hasLanguages = langKeys.length >= 2;
+  const [selectedLang, setSelectedLang] = useState(
+    () => defaultLanguage || langKeys[0] || "",
+  );
+
+  // Build merged config: language preset + user overrides
+  const mergedConfig = useMemo(() => {
+    const base: Record<string, unknown> = {};
+    if (languages && selectedLang && languages[selectedLang]) {
+      const p = languages[selectedLang];
+      if (p.voice) base.voice = p.voice;
+      if (p.stt) base.stt = p.stt;
+      if (p.language) base.language = p.language;
+      if (p.turnDetection) base.turnDetection = p.turnDetection;
+      if (p.greeting) base.greeting = p.greeting;
+    }
+    return { ...base, ...userConfig };
+  }, [languages, selectedLang, userConfig]);
+
+  const session = useVoiceSession({
+    server,
+    agent,
+    config: Object.keys(mergedConfig).length > 0 ? mergedConfig : undefined,
+    metadata,
+  });
   const [panelOpen, setPanelOpen] = useState(false);
 
   /** Merge preset + custom theme overrides → CSS custom properties */
@@ -96,6 +130,36 @@ export function VoiceWidget({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [session.messages]);
+
+  // ── Language change handler ──
+  const handleLanguageChange = useCallback(
+    (lang: string) => {
+      if (lang === selectedLang) return;
+      setSelectedLang(lang);
+      const preset = languages?.[lang];
+      if (!preset) return;
+
+      // Build config from preset
+      const cfg: Record<string, unknown> = {};
+      if (preset.voice) cfg.voice = preset.voice;
+      if (preset.stt) cfg.stt = preset.stt;
+      if (preset.language) cfg.language = preset.language;
+      if (preset.turnDetection) cfg.turnDetection = preset.turnDetection;
+
+      // Mid-call → send via DataChannel
+      if (session.status === "connected" && Object.keys(cfg).length > 0) {
+        session.configure(cfg);
+      } else {
+        // Pre-call → update options for next connect()
+        const merged = { ...cfg, ...userConfig };
+        if (preset.greeting) merged.greeting = preset.greeting;
+        session.updateOptions({ config: merged });
+      }
+
+      onLanguageChange?.(lang, preset);
+    },
+    [selectedLang, languages, session, userConfig, onLanguageChange],
+  );
 
   const handleClick = useCallback(async () => {
     if (session.status === "connected") {
@@ -139,6 +203,30 @@ export function VoiceWidget({
       className={`vw-wrap ${isActive ? "is-live" : ""} ${className || ""}`}
       style={themeStyle as React.CSSProperties}
     >
+      {/* Language selector pills */}
+      {hasLanguages && (
+        <div className="vw-lang-bar">
+          {langKeys.map((key) => {
+            const lp = languages![key];
+            const isSelected = key === selectedLang;
+            return (
+              <button
+                key={key}
+                className={`vw-lang-pill ${isSelected ? "vw-lang-pill--active" : ""}`}
+                onClick={() => handleLanguageChange(key)}
+                aria-label={lp.label || key}
+                aria-pressed={isSelected}
+              >
+                {lp.flag && <span className="vw-lang-flag">{lp.flag}</span>}
+                <span className="vw-lang-code">
+                  {lp.label || key.toUpperCase()}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Idle label */}
       <div className="vw-label">{statusLabel}</div>
 

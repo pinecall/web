@@ -38,4 +38,16 @@ export interface VoiceSessionOptions {
    * The response includes the actual voice server URL for ICE + SDP negotiation.
    */
   server?: string;
+  /**
+   * Initial session config overrides sent in the WebRTC offer body.
+   * Supported keys: `voice`, `stt`, `language`, `turnDetection`, `greeting`.
+   *
+   * @example
+   * ```ts
+   * { voice: "alloy", stt: "deepgram", language: "es", greeting: "¡Hola!" }
+   * ```
+   */
+  config?: Record<string, unknown>;
+  /** Call metadata sent in the WebRTC offer body. */
+  metadata?: Record<string, unknown>;
 }

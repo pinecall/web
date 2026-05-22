@@ -5,6 +5,7 @@ export type {
   VoiceWidgetProps,
   VoiceWidgetTheme,
   VoiceWidgetPreset,
+  LanguagePreset,
 } from "./types";
 // Re-export core types for convenience
 export type {
