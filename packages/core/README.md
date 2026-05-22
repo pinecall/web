@@ -115,6 +115,25 @@ interface VoiceSessionOptions {
    * Only override for self-hosted deployments.
    */
   server?: string;
+  /**
+   * Session config overrides sent in the WebRTC offer body.
+   * Use this for per-session voice, STT, language, turn detection, and greeting.
+   * Format follows Pinecall's shortcut syntax (resolved server-side).
+   *
+   * @example
+   * ```ts
+   * config: {
+   *   voice: "elevenlabs:EXAVITQu4vr4xnSDxMaL",
+   *   stt: { provider: "deepgram", model: "nova-3", language: "es" },
+   *   language: "es",
+   *   turnDetection: "smart_turn",
+   *   greeting: "¡Hola! ¿En qué puedo ayudarte?",
+   * }
+   * ```
+   */
+  config?: Record<string, unknown>;
+  /** Metadata passed to the agent (available in call.metadata server-side) */
+  metadata?: Record<string, unknown>;
 }
 ```
 
@@ -192,6 +211,36 @@ Disconnects, clears all subscribers, and makes the instance unusable. Call this 
 
 ```ts
 session.destroy();
+```
+
+#### `session.configure(config): void`
+
+Sends a mid-call configuration update via DataChannel. Use this for live language/voice/STT switching during an active call. The server will hot-swap providers without disconnecting.
+
+```ts
+// Switch to Spanish mid-call
+session.configure({
+  voice: "elevenlabs:h2cd3gvcqTp3m65Dysk7",
+  stt: { provider: "deepgram", model: "nova-3", language: "es" },
+  language: "es",
+});
+```
+
+#### `session.updateOptions(patch): void`
+
+Updates session options **before** the next `connect()` call. Has no effect on an already-connected session — use `configure()` for that.
+
+```ts
+// Pre-connect: user selected Spanish in the UI
+session.updateOptions({
+  config: {
+    voice: "elevenlabs:h2cd3gvcqTp3m65Dysk7",
+    language: "es",
+    greeting: "¡Hola!",
+  },
+});
+
+await session.connect(); // will use the Spanish config
 ```
 
 ---
@@ -403,6 +452,7 @@ The client sends these through the DataChannel:
 | Ping | `"ping"` (string) | Keepalive, sent every 1s |
 | Mute | `{ "action": "mute" }` | Stop processing user audio server-side |
 | Unmute | `{ "action": "unmute" }` | Resume processing user audio |
+| Configure | `{ "action": "configure", ...config }` | Hot-swap voice, STT, language, or turn detection mid-call |
 
 ---
 

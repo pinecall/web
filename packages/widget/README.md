@@ -81,8 +81,78 @@ That's it. The widget renders a floating orb in the bottom-right corner. Click t
 | `label` | `string` | `"Talk to {name}"` | Tooltip shown on hover when idle |
 | `preset` | `VoiceWidgetPreset` | `"dark"` | Theme preset name (see [Presets](#theme-presets)) |
 | `theme` | `Partial<VoiceWidgetTheme>` | — | Custom theme overrides, merged on top of preset |
+| `config` | `Record<string, unknown>` | — | Session config overrides (voice, STT, language, greeting) |
+| `metadata` | `Record<string, unknown>` | — | Metadata passed to the agent (available in `call.metadata`) |
+| `languages` | `Record<string, LanguagePreset>` | — | Multi-language presets (see [Multi-Language](#multi-language)) |
+| `defaultLanguage` | `string` | first key | Initial language selection |
+| `onLanguageChange` | `(lang, preset) => void` | — | Called when the user selects a language |
 | `className` | `string` | — | Extra CSS class on the root wrapper |
 | `onStatusChange` | `(status) => void` | — | Called when connection status changes |
+
+---
+
+## Multi-Language
+
+The `languages` prop enables a language pill selector that appears on hover and stays visible during calls. Each language preset configures the voice, STT, turn detection, and greeting for that language.
+
+```tsx
+import { VoiceWidget } from "@pinecall/voice-widget";
+import type { LanguagePreset } from "@pinecall/voice-widget";
+
+const LANGUAGES: Record<string, LanguagePreset> = {
+  en: {
+    label: "English",
+    flag: "🇬🇧",
+    voice: "elevenlabs:EXAVITQu4vr4xnSDxMaL",
+    stt: "deepgram-flux",
+    language: "en",
+    greeting: "Hello! How can I help you?",
+  },
+  es: {
+    label: "Español",
+    flag: "🇪🇸",
+    voice: "elevenlabs:h2cd3gvcqTp3m65Dysk7",
+    stt: { provider: "deepgram", model: "nova-3", language: "es" },
+    language: "es",
+    greeting: "¡Hola! ¿En qué puedo ayudarte?",
+  },
+  ar: {
+    label: "العربية",
+    flag: "🇸🇦",
+    voice: "elevenlabs:jAAHNNqlbAX9iWjJPEtE",
+    stt: { provider: "deepgram", model: "nova-3", language: "ar" },
+    language: "ar",
+    turnDetection: "smart_turn",
+    greeting: "مرحباً، كيف يمكنني مساعدتك؟",
+  },
+};
+
+<VoiceWidget
+  agent="mara"
+  name="Mara"
+  languages={LANGUAGES}
+  defaultLanguage="en"
+  onLanguageChange={(lang, preset) => console.log(`Switched to ${lang}`)}
+/>
+```
+
+### LanguagePreset
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `label` | `string` | Display name (e.g. "Español") |
+| `flag` | `string` | Flag emoji (e.g. "🇪🇸") |
+| `voice` | `string` | Voice ID in `provider:id` format (e.g. `"elevenlabs:abc123"`) |
+| `stt` | `string \| object` | STT shortcut (`"deepgram-flux"`) or full config (`{ provider, model, language }`) |
+| `language` | `string` | Language code for STT (e.g. `"es"`, `"ar"`) |
+| `turnDetection` | `string \| object` | Turn detection mode (`"smart_turn"`, `"native"`) or full config |
+| `greeting` | `string` | Custom greeting in this language, spoken when the call starts |
+
+### Behavior
+
+- **Pre-call**: Language pill bar appears on hover. Selecting a language updates the session config for the next `connect()`.
+- **Mid-call**: Language pills are always visible. Selecting a language sends a `configure` message via DataChannel, hot-swapping voice/STT/turn detection without disconnecting.
+- **Greeting**: Only applies at call start (sent in the offer body). Mid-call language changes don't re-trigger the greeting.
 
 ---
 
@@ -374,7 +444,12 @@ export { useVoiceSession } from "./useVoiceSession";
 export { PRESETS } from "./presets";
 
 // Types
-export type { VoiceWidgetProps, VoiceWidgetTheme, VoiceWidgetPreset } from "./types";
+export type {
+  VoiceWidgetProps,
+  VoiceWidgetTheme,
+  VoiceWidgetPreset,
+  LanguagePreset,
+} from "./types";
 
 // Re-exported from @pinecall/voice-core
 export type {
