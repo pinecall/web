@@ -78,10 +78,9 @@ export type VoiceWidgetPreset =
  * const spanish: LanguagePreset = {
  *   label: "Español",
  *   flag: "🇪🇸",
- *   voice: "coral",
- *   stt: "deepgram",
+ *   voice: "elevenlabs:abc",
+ *   stt: { provider: "deepgram-flux" },
  *   language: "es",
- *   greeting: "¡Hola! ¿En qué puedo ayudarte?",
  * };
  * ```
  */
@@ -94,20 +93,12 @@ export interface LanguagePreset {
   voice?: string;
   /**
    * STT override — string shortcut or full config object.
-   * @example "deepgram"
-   * @example { provider: "deepgram", model: "nova-3", language: "es" }
+   * @example "deepgram-flux"
+   * @example { provider: "deepgram-flux" }
    */
   stt?: string | Record<string, unknown>;
   /** Language code for STT (e.g. "es", "en") */
   language?: string;
-  /**
-   * Turn detection override — string shortcut or config object.
-   * @example "smart_turn"
-   * @example { mode: "smart_turn", threshold: 0.7 }
-   */
-  turnDetection?: string | Record<string, unknown>;
-  /** Custom greeting in this language */
-  greeting?: string;
 }
 
 export interface VoiceWidgetProps {
@@ -124,7 +115,7 @@ export interface VoiceWidgetProps {
   /** Idle label shown on hover. Default: "Talk to {name}" */
   label?: string;
   /**
-   * Initial session config overrides (language, voice, stt, turnDetection, greeting).
+   * Initial session config overrides (language, voice, stt).
    * Merged with the selected language preset if `languages` is provided.
    */
   config?: Record<string, unknown>;
