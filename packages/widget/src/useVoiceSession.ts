@@ -38,6 +38,18 @@ export function useVoiceSession(opts: VoiceSessionOptions) {
       session.updateOptions(patch),
     [session],
   );
+  const sendText = useCallback(
+    (text: string) => session.sendText(text),
+    [session],
+  );
+  const dismissTool = useCallback(
+    (toolCallId: string) => session.dismissTool(toolCallId),
+    [session],
+  );
+  const setContext = useCallback(
+    (key: string, value: string | null) => session.setContext(key, value),
+    [session],
+  );
 
   return {
     ...state,
@@ -47,5 +59,8 @@ export function useVoiceSession(opts: VoiceSessionOptions) {
     setMuted,
     configure,
     updateOptions,
+    sendText,
+    dismissTool,
+    setContext,
   };
 }

@@ -6,13 +6,45 @@
  * - Live speech bubbles around the orb (current turn only)
  * - Expandable transcript panel with full conversation history
  * - Word-by-word bot response rendering
+ * - React context for external tool UI rendering via useVoice() hook
  */
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import type { TranscriptMessage } from "@pinecall/voice-core";
+import { useState, useEffect, useCallback, useRef, useMemo, createContext, useContext } from "react";
+import type { ReactNode } from "react";
+import type { TranscriptMessage, ToolUI, SessionStatus, VoiceSessionState } from "@pinecall/voice-core";
 import type { VoiceWidgetProps, VoiceWidgetTheme } from "./types";
 import { useVoiceSession } from "./useVoiceSession";
 import { WIDGET_CSS } from "./styles";
 import { PRESETS } from "./presets";
+
+// ── Voice Context — lets consumers render tool UI anywhere ──────────
+
+type VoiceContextValue = ReturnType<typeof useVoiceSession> | null;
+const VoiceContext = createContext<VoiceContextValue>(null);
+
+/**
+ * Hook to access the VoiceWidget session from any child component.
+ *
+ * Must be used inside a `<VoiceWidget>` tree. Returns the full session
+ * state (toolCalls, messages, status, etc.) plus action methods
+ * (sendText, dismissTool, connect, disconnect, etc.).
+ *
+ * @example
+ * ```tsx
+ * function SlotPicker() {
+ *   const { toolCalls, sendText, dismissTool } = useVoice();
+ *   const slots = toolCalls.find(tc => tc.name === "getSlots" && tc.result);
+ *   if (!slots) return null;
+ *   return slots.result.map(s => (
+ *     <button onClick={() => { sendText(`Book ${s}`); dismissTool(slots.toolCallId); }}>{s}</button>
+ *   ));
+ * }
+ * ```
+ */
+export function useVoice() {
+  const ctx = useContext(VoiceContext);
+  if (!ctx) throw new Error("useVoice() must be used inside <VoiceWidget>");
+  return ctx;
+}
 
 /** Map theme keys → CSS custom property names */
 const THEME_VAR_MAP: Record<keyof VoiceWidgetTheme, string> = {
@@ -57,41 +89,44 @@ export function VoiceWidget({
   label,
   config: userConfig,
   metadata,
-  languages,
-  defaultLanguage,
-  onLanguageChange,
   className,
   preset = "dark",
   theme,
   onStatusChange,
-}: VoiceWidgetProps) {
-  // ── Language state ──
-  const langKeys = useMemo(
-    () => (languages ? Object.keys(languages) : []),
-    [languages],
-  );
-  const hasLanguages = langKeys.length >= 2;
-  const [selectedLang, setSelectedLang] = useState(
-    () => defaultLanguage || langKeys[0] || "",
-  );
+  tools,
+  trackedTools: trackedToolsProp,
+  languages,
+  defaultLanguage,
+  onLanguageChange,
+  children,
+}: VoiceWidgetProps & { children?: ReactNode }) {
+  const hasLanguages = languages && Object.keys(languages).length >= 2;
+  const langKeys = hasLanguages ? Object.keys(languages!) : [];
+  const initialLang = defaultLanguage || (langKeys[0] ?? "");
+  const [selectedLang, setSelectedLang] = useState(initialLang);
 
-  // Build merged config: language preset + user overrides
+  // Merge language preset config with user config
   const mergedConfig = useMemo(() => {
-    const base: Record<string, unknown> = {};
-    if (languages && selectedLang && languages[selectedLang]) {
-      const p = languages[selectedLang];
-      if (p.voice) base.voice = p.voice;
-      if (p.stt) base.stt = p.stt;
-      if (p.language) base.language = p.language;
-    }
-    return { ...base, ...userConfig };
-  }, [languages, selectedLang, userConfig]);
+    const langPreset = languages?.[selectedLang];
+    const langConfig: Record<string, unknown> = {};
+    if (langPreset?.voice) langConfig.voice = langPreset.voice;
+    if (langPreset?.stt) langConfig.stt = langPreset.stt;
+    if (langPreset?.language) langConfig.language = langPreset.language;
+    return { ...langConfig, ...userConfig };
+  }, [selectedLang, languages, userConfig]);
+
+  // Derive tracked tool names from both sources
+  const trackedTools = useMemo(
+    () => trackedToolsProp ?? (tools ? Object.keys(tools) : undefined),
+    [tools, trackedToolsProp],
+  );
 
   const session = useVoiceSession({
     server,
     agent,
     config: Object.keys(mergedConfig).length > 0 ? mergedConfig : undefined,
     metadata,
+    trackedTools,
   });
   const [panelOpen, setPanelOpen] = useState(false);
 
@@ -127,7 +162,18 @@ export function VoiceWidget({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [session.messages]);
+  }, [session.messages, session.toolCalls]);
+
+  /* Auto-open panel when a tool result arrives with a matching renderer */
+  useEffect(() => {
+    if (!tools) return;
+    const hasRenderable = session.toolCalls.some(
+      (tc) => tc.result !== undefined && tools[tc.name],
+    );
+    if (hasRenderable && !panelOpen) {
+      setPanelOpen(true);
+    }
+  }, [session.toolCalls, tools]);
 
   // ── Language change handler ──
   const handleLanguageChange = useCallback(
@@ -193,7 +239,7 @@ export function VoiceWidget({
     .reverse()
     .find((m) => m.role === "user" || (m.role === "bot" && m.text));
 
-  return (
+  const widget = (
     <div
       className={`vw-wrap ${isActive ? "is-live" : ""} ${className || ""}`}
       style={themeStyle as React.CSSProperties}
@@ -268,6 +314,25 @@ export function VoiceWidget({
                 <TranscriptMsg key={msg.id} msg={msg} />
               ))
             )}
+            {/* Tool UI components — rendered inline after messages (simple mode) */}
+            {tools &&
+              session.toolCalls
+                .filter((tc) => tc.result !== undefined && tools[tc.name])
+                .map((tc) => (
+                  <div key={tc.toolCallId} className="vw-tp-tool">
+                    {tools[tc.name](
+                      tc.result,
+                      {
+                        respond: (text: string) => {
+                          session.sendText(text);
+                          session.dismissTool(tc.toolCallId);
+                        },
+                        dismiss: () => session.dismissTool(tc.toolCallId),
+                      },
+                      tc,
+                    )}
+                  </div>
+                ))}
           </div>
         </div>
       )}
@@ -283,6 +348,18 @@ export function VoiceWidget({
       />
     </div>
   );
+
+  // If children are provided, wrap in context provider so useVoice() works
+  if (children) {
+    return (
+      <VoiceContext.Provider value={session}>
+        {widget}
+        {children}
+      </VoiceContext.Provider>
+    );
+  }
+
+  return widget;
 }
 
 /** Single message in the transcript panel */

@@ -5,4 +5,7 @@ export type {
   TranscriptMessage,
   VoiceSessionState,
   VoiceSessionOptions,
+  ToolCallEvent,
+  ToolResultEvent,
+  ToolUI,
 } from "./types";
