@@ -209,6 +209,7 @@ Every visual aspect is controlled by CSS custom properties. Pass a `theme` objec
     colorUserSpeaking: "52, 211, 153",  // emerald
     colorSpeaking: "248, 113, 113",     // rose
     colorThinking: "139, 92, 246",      // violet
+    colorWarning: "255, 160, 0",        // amber (idle warning blink)
     colorAccent: "124, 58, 237",        // violet (user bubbles)
     ringColor: "216, 65, 44",           // idle ring glow
 
@@ -238,6 +239,7 @@ Every visual aspect is controlled by CSS custom properties. Pass a `theme` objec
 | `colorUserSpeaking` | `--vw-color-user-speaking` | RGB triplet | `52, 211, 153` | User speaking orb |
 | `colorSpeaking` | `--vw-color-speaking` | RGB triplet | `248, 113, 113` | Agent speaking orb |
 | `colorThinking` | `--vw-color-thinking` | RGB triplet | `139, 92, 246` | Thinking/processing orb |
+| `colorWarning` | `--vw-color-warning` | RGB triplet | `255, 160, 0` | Idle warning blink |
 | `colorAccent` | `--vw-color-accent` | RGB triplet | `124, 58, 237` | User bubble accent |
 | `ringColor` | `--vw-ring-color` | RGB triplet | `216, 65, 44` | Idle ring glow |
 | `panelBg` | `--vw-panel-bg` | CSS color | `rgba(16,14,20,.92)` | Transcript panel bg |
@@ -282,6 +284,7 @@ function CustomVoice() {
     agentSpeaking,  // boolean — TTS is playing
     duration,       // number — seconds since connected
     messages,       // TranscriptMessage[] — full transcript
+    idleWarning,    // number | null — seconds until idle timeout (null = no warning)
 
     // Actions
     connect,        // () => Promise<void>
@@ -369,6 +372,9 @@ The orb changes color and animation based on the call phase:
 | User Speaking | Emerald glow | `.user-speaking` | User is talking |
 | Agent Speaking | Rose pulse | `.speaking` | Bot TTS playing |
 | Thinking | Violet pulse | `.thinking` | Waiting for LLM response |
+| **Idle Warning** | **Orange blink** | `.idle-warning` | User silent too long — call will timeout soon |
+
+The idle warning state is triggered by the server's `session.idle_warning` event and clears when the user speaks or the call ends.
 
 ---
 
