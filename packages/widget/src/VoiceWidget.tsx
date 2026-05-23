@@ -56,6 +56,7 @@ const THEME_VAR_MAP: Record<keyof VoiceWidgetTheme, string> = {
   colorUserSpeaking: "--vw-color-user-speaking",
   colorSpeaking: "--vw-color-speaking",
   colorThinking: "--vw-color-thinking",
+  colorWarning: "--vw-color-warning",
   colorAccent: "--vw-color-accent",
   ringColor: "--vw-ring-color",
   panelBg: "--vw-panel-bg",
@@ -220,11 +221,13 @@ export function VoiceWidget({
       ? "user-speaking"
       : session.phase === "thinking"
         ? "thinking"
-        : isActive
-          ? "active"
-          : session.status === "connecting"
-            ? "connecting"
-            : "";
+        : session.idleWarning != null
+          ? "idle-warning"
+          : isActive
+            ? "active"
+            : session.status === "connecting"
+              ? "connecting"
+              : "";
 
   const statusLabel = (() => {
     if (session.status === "connecting") return "Connecting";
