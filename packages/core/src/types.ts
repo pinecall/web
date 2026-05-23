@@ -78,6 +78,13 @@ export interface VoiceSessionState {
   messages: TranscriptMessage[];
   /** Active tool UI entries (only for tracked tools). */
   toolCalls: ToolUI[];
+  /**
+   * Idle warning state. Non-null when `session.idle_warning` fires,
+   * meaning the user hasn't spoken and the call will timeout soon.
+   * Contains the remaining seconds until timeout.
+   * Resets to `null` when the user speaks.
+   */
+  idleWarning: number | null;
 }
 
 export interface VoiceSessionOptions {
