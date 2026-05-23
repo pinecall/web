@@ -24,6 +24,7 @@ const INITIAL_STATE: VoiceSessionState = {
   duration: 0,
   messages: [],
   toolCalls: [],
+  idleWarning: null,
 };
 
 export class VoiceSession extends EventTarget {
@@ -268,7 +269,7 @@ export class VoiceSession extends EventTarget {
     switch (d.event) {
       // ── User speech (STT) ──
       case "speech.started":
-        this.setState({ userSpeaking: true });
+        this.setState({ userSpeaking: true, idleWarning: null });
         break;
       case "speech.ended":
         this.setState({ userSpeaking: false });
@@ -411,6 +412,14 @@ export class VoiceSession extends EventTarget {
         if (d.source === "user" && d.is_speech !== undefined) {
           this.setState({ userSpeaking: d.is_speech });
         }
+        break;
+
+      // ── Session limits ──
+      case "session.idle_warning":
+        this.setState({ idleWarning: d.remaining_seconds ?? 0 });
+        break;
+      case "session.timeout":
+        // Timeout fires after warning — keep idleWarning set
         break;
 
       // ── Tool events (server-side LLM) ──
