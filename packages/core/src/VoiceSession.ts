@@ -129,6 +129,7 @@ export class VoiceSession extends EventTarget {
       phase: "idle",
       userSpeaking: false,
       agentSpeaking: false,
+      idleWarning: null,
     });
   }
 
@@ -419,7 +420,8 @@ export class VoiceSession extends EventTarget {
         this.setState({ idleWarning: d.remaining_seconds ?? 0 });
         break;
       case "session.timeout":
-        // Timeout fires after warning — keep idleWarning set
+        // Server will hang up — disconnect immediately
+        this.disconnect();
         break;
 
       // ── Tool events (server-side LLM) ──
