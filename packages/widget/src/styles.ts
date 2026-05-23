@@ -25,6 +25,7 @@ export const WIDGET_CSS = /* css */ `
   --vw-color-user-speaking: 52, 211, 153;
   --vw-color-speaking: 248, 113, 113;
   --vw-color-thinking: 139, 92, 246;
+  --vw-color-warning: 255, 160, 0;
   --vw-color-accent: 124, 58, 237;
   --vw-ring-color: 216, 65, 44;
 
@@ -188,6 +189,25 @@ export const WIDGET_CSS = /* css */ `
 @keyframes vw-think-pulse {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.03); opacity: .85; }
+}
+
+/* ── State: idle warning ── */
+.vw-orb.idle-warning {
+  background: radial-gradient(circle at 30% 30%, #fff,
+    rgba(var(--vw-color-warning), .35) 35%,
+    rgba(var(--vw-color-warning), .7) 70%,
+    rgba(var(--vw-color-warning), 1));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .9) inset,
+    0 14px 40px -10px rgba(0, 0, 0, .2),
+    0 0 30px rgba(var(--vw-color-warning), .35);
+  animation: vw-warning-blink .6s ease-in-out infinite;
+}
+.vw-orb.idle-warning::after,
+.vw-orb.idle-warning::before { border-color: rgba(var(--vw-color-warning), .4); }
+
+@keyframes vw-warning-blink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .55; transform: scale(.96); }
 }
 
 /* ══════════════════════════════════════════════════

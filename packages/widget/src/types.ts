@@ -30,6 +30,8 @@ export interface VoiceWidgetTheme {
   colorSpeaking?: string;
   /** Thinking/processing state — violet.  Default: `"139, 92, 246"` */
   colorThinking?: string;
+  /** Idle warning state — amber/orange.  Default: `"255, 160, 0"` */
+  colorWarning?: string;
   /** User bubble accent — violet.  Default: `"124, 58, 237"` */
   colorAccent?: string;
   /** Idle ring border — warm.  Default: `"216, 65, 44"` */
