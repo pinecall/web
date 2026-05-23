@@ -83,8 +83,6 @@ export function VoiceWidget({
       if (p.voice) base.voice = p.voice;
       if (p.stt) base.stt = p.stt;
       if (p.language) base.language = p.language;
-      if (p.turnDetection) base.turnDetection = p.turnDetection;
-      if (p.greeting) base.greeting = p.greeting;
     }
     return { ...base, ...userConfig };
   }, [languages, selectedLang, userConfig]);
@@ -144,16 +142,13 @@ export function VoiceWidget({
       if (preset.voice) cfg.voice = preset.voice;
       if (preset.stt) cfg.stt = preset.stt;
       if (preset.language) cfg.language = preset.language;
-      if (preset.turnDetection) cfg.turnDetection = preset.turnDetection;
 
       // Mid-call → send via DataChannel
       if (session.status === "connected" && Object.keys(cfg).length > 0) {
         session.configure(cfg);
       } else {
         // Pre-call → update options for next connect()
-        const merged = { ...cfg, ...userConfig };
-        if (preset.greeting) merged.greeting = preset.greeting;
-        session.updateOptions({ config: merged });
+        session.updateOptions({ config: { ...cfg, ...userConfig } });
       }
 
       onLanguageChange?.(lang, preset);

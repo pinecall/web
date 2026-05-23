@@ -6,9 +6,9 @@ import type { VoiceWidgetPreset, LanguagePreset } from "@pinecall/voice-widget";
 const PRESETS: VoiceWidgetPreset[] = ["dark", "midnight", "aurora", "sunset", "light"];
 
 const LANGUAGES: Record<string, LanguagePreset> = {
-  en: { label: "English", flag: "🇬🇧", voice: "elevenlabs:EXAVITQu4vr4xnSDxMaL", stt: { provider: "deepgram", model: "nova-3", language: "en" }, language: "en", greeting: "Hey, I'm Mara from DeutschePolska. How can I help you today?" },
-  es: { label: "Español", flag: "🇪🇸", voice: "elevenlabs:h2cd3gvcqTp3m65Dysk7", stt: { provider: "deepgram", model: "nova-3", language: "es" }, language: "es", greeting: "¡Hola! Soy Mara de DeutschePolska. ¿En qué puedo ayudarte?" },
-  ar: { label: "العربية", flag: "🇸🇦", voice: "elevenlabs:jAAHNNqlbAX9iWjJPEtE", stt: { provider: "deepgram", model: "nova-3", language: "ar" }, language: "ar", turnDetection: "smart_turn", greeting: "مرحباً، أنا مارا من دويتشه بولسكا. كيف يمكنني مساعدتك؟" },
+  en: { label: "English", flag: "🇬🇧", voice: "elevenlabs:EXAVITQu4vr4xnSDxMaL", stt: { provider: "deepgram-flux" }, language: "en" },
+  es: { label: "Español", flag: "🇪🇸", voice: "elevenlabs:h2cd3gvcqTp3m65Dysk7", stt: { provider: "deepgram-flux" }, language: "es" },
+  ar: { label: "العربية", flag: "🇸🇦", voice: "elevenlabs:jAAHNNqlbAX9iWjJPEtE", stt: { provider: "deepgram-flux" }, language: "ar" },
 };
 
 function Demo() {
