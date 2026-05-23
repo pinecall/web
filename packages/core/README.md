@@ -265,6 +265,8 @@ interface VoiceSessionState {
   duration: number;
   /** Full conversation transcript — user + bot messages */
   messages: TranscriptMessage[];
+  /** Idle warning countdown — seconds until timeout (null if no warning active) */
+  idleWarning: number | null;
 }
 ```
 
@@ -428,6 +430,13 @@ These events are **not** processed by the state machine but are forwarded throug
 | `llm.response` | `text`, `finish_reason` | LLM finished generating (text may be empty if tool-only) |
 | `llm.error` | `error` | LLM error occurred |
 
+#### Session Limits
+
+| Event | Fields | Description |
+|-------|--------|-------------|
+| `session.idle_warning` | `remaining_seconds` | User hasn't spoken — call will timeout in `remaining_seconds`. Triggers `idleWarning` state. |
+| `session.timeout` | `reason` | Session timed out (`"idle_timeout"` or `"max_duration"`). Client auto-disconnects. |
+
 **Example — Monitoring tool calls:**
 
 ```ts
@@ -453,6 +462,8 @@ The client sends these through the DataChannel:
 | Mute | `{ "action": "mute" }` | Stop processing user audio server-side |
 | Unmute | `{ "action": "unmute" }` | Resume processing user audio |
 | Configure | `{ "action": "configure", ...config }` | Hot-swap voice, STT, language, or turn detection mid-call |
+| Inject Text | `{ "action": "inject_text", "text": "..." }` | Send text as if the user spoke it (for tool UI interactions) |
+| Set Context | `{ "action": "set_context", "key": "...", "value": "..." }` | Inject/update keyed context in the LLM prompt |
 
 ---
 
