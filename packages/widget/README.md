@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Drop-in React voice widget for Pinecall agents.</strong><br/>
-  Animated orb UI with real-time transcript, theme presets, and full customization.<br/>
+  Animated orb UI with real-time transcript, interactive tool rendering, and full customization.<br/>
   Built on <a href="https://www.npmjs.com/package/@pinecall/voice-core"><code>@pinecall/voice-core</code></a>.
 </p>
 
@@ -36,6 +36,14 @@
   - [Status Change Callback](#status-change-callback)
   - [Accessing Raw Events (Core Session)](#accessing-raw-events-core-session)
   - [Creating Custom Presets](#creating-custom-presets)
+- [Tools API](#tools-api)
+  - [`trackedTools` Prop](#trackedtools-prop)
+  - [`ToolUI` Type](#toolui-type)
+  - [`useVoice()` Context Hook](#usevoice-context-hook)
+  - [`sendText(text)`](#sendtexttext)
+  - [`setContext(key, value)`](#setcontextkey-value)
+  - [`dismissTool(toolCallId)`](#dismisstooltoolcallid)
+  - [Full Example: Booking + Contact Form](#full-example-booking--contact-form)
 - [Exports](#exports)
 
 ---
@@ -435,12 +443,226 @@ const brandTheme: Partial<VoiceWidgetTheme> = {
 
 ---
 
+## Tools API
+
+The widget can render interactive UI for server-side LLM tool calls. This enables rich, bidirectional interactions: the agent calls tools → the UI renders components → the user interacts → the agent sees the result.
+
+### How It Works
+
+```
+Agent calls tool (e.g. getAvailableSlots)
+  ↓ DataChannel: llm.tool_call
+Widget tracks it in state.toolCalls
+  ↓ SDK executes tool handler
+  ↓ DataChannel: llm.tool_result
+Widget updates toolCalls[].result
+  → Your component renders the result (e.g. slot picker)
+  → User clicks a slot
+  → sendText("I'd like the 10 AM slot")
+  → Agent processes the selection
+```
+
+### `trackedTools` Prop
+
+Tell the widget which tool names to track for UI rendering. Untracked tools are handled silently by the server-side agent.
+
+```tsx
+<VoiceWidget
+  agent="booking-demo"
+  trackedTools={["getAvailableSlots", "showContactForm", "fillField"]}
+>
+  <ToolPanel />
+</VoiceWidget>
+```
+
+### `ToolUI` Type
+
+Each tracked tool call is stored in `state.toolCalls` as a `ToolUI` object:
+
+```typescript
+interface ToolUI {
+  toolCallId: string;                    // Correlation ID
+  name: string;                          // Tool function name
+  arguments: Record<string, unknown>;    // Parsed LLM arguments
+  result?: unknown;                      // Result (undefined while pending)
+  timestamp: number;                     // When the call was received
+}
+```
+
+### `useVoice()` Context Hook
+
+Access session state and actions from any component inside `<VoiceWidget>`:
+
+```tsx
+import { useVoice } from "@pinecall/voice-widget";
+
+function ToolPanel() {
+  const {
+    // State
+    toolCalls,     // ToolUI[] — active tracked tool calls
+    messages,      // TranscriptMessage[] — full transcript
+    status,        // SessionStatus
+    phase,         // CallPhase
+
+    // Actions
+    sendText,      // (text: string) => void — inject text as if the user spoke
+    dismissTool,   // (toolCallId: string) => void — remove a tool from state
+    setContext,     // (key: string, value: string | null) => void — inject context into LLM prompt
+  } = useVoice();
+
+  const slots = toolCalls.find(
+    (tc) => tc.name === "getAvailableSlots" && tc.result !== undefined,
+  );
+
+  if (!slots) return null;
+
+  return (
+    <div className="slot-picker">
+      {slots.result.slots.map((slot) => (
+        <button
+          key={slot}
+          onClick={() => {
+            sendText(`I'd like the ${slot} slot`);
+            dismissTool(slots.toolCallId);
+          }}
+        >
+          {slot}
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+> **`useVoice()` vs `useVoiceSession()`**: `useVoice()` is a context hook for components *inside* `<VoiceWidget>`. `useVoiceSession()` is a standalone hook that creates its own session. Use `useVoice()` when building tool renderers.
+
+### `sendText(text)`
+
+Inject text into the conversation as if the user spoke it. Routes through the server's LLM pipeline. Useful for click-based interactions (button selections, form submissions).
+
+```tsx
+// User clicks a slot button
+sendText("I'd like to book the 10:00 AM slot");
+
+// User submits a form
+sendText("Form submitted: name=John, email=john@example.com, phone=+1555000");
+```
+
+### `setContext(key, value)`
+
+Inject dynamic context into the agent's LLM system prompt. The context is keyed — setting the same key replaces its value. Pass `null` to clear.
+
+This is powerful for syncing UI state (form inputs, selections, page content) into the agent's awareness:
+
+```tsx
+// Sync form state on every keystroke
+useEffect(() => {
+  setContext("contact_form", JSON.stringify({
+    name: formData.name || "(empty)",
+    email: formData.email || "(empty)",
+    phone: formData.phone || "(empty)",
+  }));
+}, [formData, setContext]);
+
+// Clear when form is submitted
+setContext("contact_form", null);
+```
+
+On the server, this appears in the system prompt as:
+
+```
+## UI Context
+### contact_form
+{"name":"John","email":"john@example.com","phone":"(empty)"}
+```
+
+### `dismissTool(toolCallId)`
+
+Remove a tool call from `state.toolCalls`. Call this after the user interacts with a tool UI (e.g., selects a slot) to hide the rendered component.
+
+### Full Example: Booking + Contact Form
+
+This example shows the complete flow — slot picker, contact form with auto-fill, and confirmation:
+
+**Agent (server-side):**
+
+```javascript
+const agent = pc.deploy("booking-demo", {
+  prompt: `You are a booking assistant.
+- Call getAvailableSlots when the user wants to book.
+- After they pick a slot, call showContactForm.
+- If they say their name/email/phone, call fillField to auto-fill.
+- The form state is in "## UI Context" — you can see what they've typed.
+- When the form is submitted, call confirmBooking.`,
+  model: "gpt-4.1-mini",
+  tools: [
+    { name: "getAvailableSlots", ... },
+    { name: "showContactForm", ... },
+    { name: "fillField", parameters: { field: "name|email|phone", value: "string" } },
+    { name: "confirmBooking", ... },
+  ],
+  channels: ["webrtc"],
+});
+```
+
+**UI (browser-side):**
+
+```tsx
+import { VoiceWidget, useVoice } from "@pinecall/voice-widget";
+
+function ContactForm({ tool }) {
+  const { sendText, dismissTool, setContext, toolCalls } = useVoice();
+  const [form, setForm] = useState({ name: "", email: "", phone: "" });
+
+  // Watch for agent auto-fill via fillField tool
+  const fillTool = toolCalls.find(tc => tc.name === "fillField" && tc.result);
+  useEffect(() => {
+    if (fillTool?.result) {
+      setForm(prev => ({ ...prev, [fillTool.result.field]: fillTool.result.value }));
+      dismissTool(fillTool.toolCallId);
+    }
+  }, [fillTool]);
+
+  // Sync form state → LLM prompt
+  useEffect(() => {
+    setContext("contact_form", JSON.stringify(form));
+  }, [form, setContext]);
+
+  return (
+    <form onSubmit={() => {
+      sendText(`Form submitted: ${JSON.stringify(form)}`);
+      setContext("contact_form", null);
+      dismissTool(tool.toolCallId);
+    }}>
+      <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+      <input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
+      <input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} />
+      <button type="submit">Confirm</button>
+    </form>
+  );
+}
+
+function App() {
+  return (
+    <VoiceWidget
+      agent="booking-demo"
+      trackedTools={["getAvailableSlots", "showContactForm", "fillField", "confirmBooking"]}
+    >
+      <ToolPanel />
+    </VoiceWidget>
+  );
+}
+```
+
+
+
 ## Exports
 
 ```ts
 // Components & hooks
 export { VoiceWidget } from "./VoiceWidget";
 export { useVoiceSession } from "./useVoiceSession";
+export { useVoice } from "./VoiceWidget";     // Context hook for tool renderers
 export { PRESETS } from "./presets";
 
 // Types
@@ -456,6 +678,7 @@ export type {
   SessionStatus,
   CallPhase,
   TranscriptMessage,
+  ToolUI,             // Tool call state for tracked tools
   VoiceSessionState,
   VoiceSessionOptions,
 } from "@pinecall/voice-core";

@@ -1,4 +1,4 @@
-export { VoiceWidget } from "./VoiceWidget";
+export { VoiceWidget, useVoice } from "./VoiceWidget";
 export { useVoiceSession } from "./useVoiceSession";
 export { PRESETS } from "./presets";
 export type {
@@ -6,6 +6,8 @@ export type {
   VoiceWidgetTheme,
   VoiceWidgetPreset,
   LanguagePreset,
+  ToolRenderer,
+  ToolRenderContext,
 } from "./types";
 // Re-export core types for convenience
 export type {
@@ -14,4 +16,8 @@ export type {
   TranscriptMessage,
   VoiceSessionState,
   VoiceSessionOptions,
+  ToolCallEvent,
+  ToolResultEvent,
+  ToolUI,
 } from "@pinecall/voice-core";
+

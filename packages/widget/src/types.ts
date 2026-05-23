@@ -1,4 +1,4 @@
-import type { SessionStatus } from "@pinecall/voice-core";
+import type { SessionStatus, ToolUI } from "@pinecall/voice-core";
 
 /**
  * Theme overrides for the Voice Widget.
@@ -101,6 +101,41 @@ export interface LanguagePreset {
   language?: string;
 }
 
+// ── Tool UI types ──────────────────────────────────────────────────
+
+/**
+ * Context passed to tool render functions.
+ * Provides methods for interacting with the conversation from tool UI.
+ */
+export interface ToolRenderContext {
+  /**
+   * Inject text into the conversation as if the user spoke it.
+   * Use this for click-based interactions (e.g., selecting a calendar slot).
+   * The agent processes the text exactly as if the user said it out loud.
+   */
+  respond: (text: string) => void;
+  /** Dismiss the tool UI from the transcript. */
+  dismiss: () => void;
+}
+
+/**
+ * Render function for a tool result.
+ *
+ * Called when a server-side tool with a matching name completes.
+ * Return a React element to render inline in the transcript.
+ *
+ * @param result - The parsed tool result from the server (any JSON value).
+ * @param context - Interaction helpers (`respond`, `dismiss`).
+ * @param toolCall - The full ToolUI entry with name, arguments, and metadata.
+ */
+export type ToolRenderer = (
+  result: any,
+  context: ToolRenderContext,
+  toolCall: ToolUI,
+) => React.ReactNode;
+
+// ── Widget props ───────────────────────────────────────────────────
+
 export interface VoiceWidgetProps {
   /** Agent ID to connect to */
   agent: string;
@@ -154,4 +189,44 @@ export interface VoiceWidgetProps {
   theme?: Partial<VoiceWidgetTheme>;
   /** Called when session status changes */
   onStatusChange?: (status: SessionStatus) => void;
+  /**
+   * Map of tool names → render functions for interactive tool UI.
+   *
+   * When a server-side tool with a matching name completes, the render
+   * function is called and the result is shown inline in the transcript.
+   * The user can interact via voice (normal speech) or via the rendered
+   * UI (e.g., clicking a calendar slot calls `respond(text)`).
+   *
+   * @example
+   * ```tsx
+   * <VoiceWidget
+   *   agent="mara"
+   *   tools={{
+   *     getAvailableSlots: (result, { respond }) => (
+   *       <div>
+   *         {result.slots.map((slot: string) => (
+   *           <button key={slot} onClick={() => respond(`I'd like ${slot}`)}>
+   *             {slot}
+   *           </button>
+   *         ))}
+   *       </div>
+   *     ),
+   *   }}
+   * />
+   * ```
+   */
+  tools?: Record<string, ToolRenderer>;
+  /**
+   * Tool names to track (alternative to `tools` for external rendering via `useVoice()`).
+   * When provided, these tools are tracked in session state but NOT rendered in the transcript.
+   * Use `useVoice().toolCalls` to render them anywhere in your component tree.
+   *
+   * @example
+   * ```tsx
+   * <VoiceWidget agent="mara" trackedTools={["getSlots", "confirmBooking"]}>
+   *   <MyCustomToolUI />
+   * </VoiceWidget>
+   * ```
+   */
+  trackedTools?: string[];
 }

@@ -11,6 +11,7 @@ import type {
   VoiceSessionState,
   VoiceSessionOptions,
   TranscriptMessage,
+  ToolUI,
 } from "./types";
 
 const INITIAL_STATE: VoiceSessionState = {
@@ -22,6 +23,7 @@ const INITIAL_STATE: VoiceSessionState = {
   agentSpeaking: false,
   duration: 0,
   messages: [],
+  toolCalls: [],
 };
 
 export class VoiceSession extends EventTarget {
@@ -410,6 +412,62 @@ export class VoiceSession extends EventTarget {
           this.setState({ userSpeaking: d.is_speech });
         }
         break;
+
+      // ── Tool events (server-side LLM) ──
+      case "llm.tool_call": {
+        const tracked = this.opts.trackedTools;
+        if (tracked && d.tool_calls?.length) {
+          const newEntries: ToolUI[] = d.tool_calls
+            .filter((tc: any) => tracked.includes(tc.name))
+            .map((tc: any) => {
+              let args: Record<string, unknown> = {};
+              try {
+                args =
+                  typeof tc.arguments === "string"
+                    ? JSON.parse(tc.arguments)
+                    : tc.arguments ?? {};
+              } catch {
+                /* leave empty */
+              }
+              return {
+                toolCallId: tc.id,
+                name: tc.name,
+                arguments: args,
+                timestamp: Date.now(),
+              };
+            });
+          if (newEntries.length) {
+            this.setState({
+              toolCalls: [...this.state.toolCalls, ...newEntries],
+            });
+          }
+        }
+        break;
+      }
+
+      case "llm.tool_result": {
+        if (d.tool_call_id) {
+          const prev = this.state.toolCalls;
+          const idx = prev.findIndex(
+            (t) => t.toolCallId === d.tool_call_id,
+          );
+          if (idx >= 0) {
+            let parsed: unknown = d.result;
+            if (typeof parsed === "string") {
+              try {
+                parsed = JSON.parse(parsed);
+              } catch {
+                /* keep as string */
+              }
+            }
+            const updated = prev.map((t, i) =>
+              i === idx ? { ...t, result: parsed } : t,
+            );
+            this.setState({ toolCalls: updated });
+          }
+        }
+        break;
+      }
     }
 
     // Emit raw event for power users (does not affect state mutations above).
@@ -451,6 +509,67 @@ export class VoiceSession extends EventTarget {
     const dc = this.dc;
     if (dc && dc.readyState === "open") {
       dc.send(JSON.stringify({ action: "configure", ...config }));
+    }
+  }
+
+  /**
+   * Inject text into the conversation as if the user spoke it.
+   *
+   * Use this for click-based interactions in tool UIs (e.g., selecting a
+   * calendar slot). The server routes the text to the LLM, producing the
+   * same effect as the user speaking.
+   *
+   * @example
+   * ```ts
+   * session.sendText("I'd like the 10:00 AM slot");
+   * ```
+   */
+  sendText(text: string): void {
+    const dc = this.dc;
+    if (dc && dc.readyState === "open") {
+      dc.send(JSON.stringify({ action: "inject_text", text }));
+    }
+  }
+
+  /**
+   * Remove a tool UI entry from state.
+   *
+   * Call this after the user interacts with a tool UI (e.g., selects a slot)
+   * to dismiss the rendered component from the transcript.
+   */
+  dismissTool(toolCallId: string): void {
+    this.setState({
+      toolCalls: this.state.toolCalls.filter(
+        (t) => t.toolCallId !== toolCallId,
+      ),
+    });
+  }
+
+  /**
+   * Set or clear a keyed context block in the LLM system prompt.
+   *
+   * Use this to inject dynamic UI state (form data, selections, etc.)
+   * into the agent's prompt so it can see what the user is doing on screen.
+   * Each key is a named section — setting the same key replaces its value.
+   * Pass `null` to remove a context key.
+   *
+   * @example
+   * ```ts
+   * // Inject form state so the agent sees what's filled
+   * session.setContext("contact_form", JSON.stringify({
+   *   name: "John",
+   *   email: "john@example.com",
+   *   phone: "",
+   * }));
+   *
+   * // Clear when form is submitted
+   * session.setContext("contact_form", null);
+   * ```
+   */
+  setContext(key: string, value: string | null): void {
+    const dc = this.dc;
+    if (dc && dc.readyState === "open") {
+      dc.send(JSON.stringify({ action: "set_context", key, value }));
     }
   }
 

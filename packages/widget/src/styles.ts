@@ -451,6 +451,12 @@ export const WIDGET_CSS = /* css */ `
   letter-spacing: .02em;
 }
 
+/* Tool UI — rendered inline in transcript */
+.vw-tp-tool {
+  padding: 4px 0;
+  animation: vw-bubble-in .2s ease-out;
+}
+
 /* ── Mobile ── */
 @media (max-width: 768px) {
   .vw-wrap { right: 16px; bottom: 16px; }
