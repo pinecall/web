@@ -568,7 +568,7 @@ export function createVoiceSession(agent: string) {
 ### WebRTC Connection Flow
 
 <p align="center">
-  <img src="docs/webrtc-flow.png" alt="WebRTC Connection Flow" width="700" />
+  <img src="https://raw.githubusercontent.com/pinecall/webrtc/main/packages/core/docs/webrtc-flow.png" alt="WebRTC Connection Flow" width="700" />
 </p>
 
 ---
