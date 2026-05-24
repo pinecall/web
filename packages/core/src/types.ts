@@ -123,4 +123,21 @@ export interface VoiceSessionOptions {
    * ```
    */
   trackedTools?: string[];
+  /**
+   * Custom token provider — call your backend to generate tokens instead
+   * of hitting /webrtc/token directly. Keeps API keys server-side.
+   *
+   * When set, VoiceSession calls this function instead of
+   * `GET /webrtc/token?agent_id=X`. It should return the token response
+   * from your authenticated backend endpoint.
+   *
+   * @example
+   * ```ts
+   * tokenProvider: async () => {
+   *   const res = await fetch("/api/token?channel=webrtc", { credentials: "include" });
+   *   return res.json(); // { token, server, expires_in }
+   * }
+   * ```
+   */
+  tokenProvider?: () => Promise<{ token: string; server: string; expires_in?: number }>;
 }

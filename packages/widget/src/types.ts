@@ -231,4 +231,20 @@ export interface VoiceWidgetProps {
    * ```
    */
   trackedTools?: string[];
+  /**
+   * Custom token provider — call your backend to generate tokens instead
+   * of hitting /webrtc/token directly. Keeps API keys server-side.
+   *
+   * @example
+   * ```tsx
+   * <VoiceWidget
+   *   agent="mara"
+   *   tokenProvider={async () => {
+   *     const res = await fetch("/api/token?channel=webrtc");
+   *     return res.json();
+   *   }}
+   * />
+   * ```
+   */
+  tokenProvider?: () => Promise<{ token: string; server: string; expires_in?: number }>;
 }

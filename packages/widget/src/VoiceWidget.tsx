@@ -99,6 +99,7 @@ export function VoiceWidget({
   languages,
   defaultLanguage,
   onLanguageChange,
+  tokenProvider,
   children,
 }: VoiceWidgetProps & { children?: ReactNode }) {
   const hasLanguages = languages && Object.keys(languages).length >= 2;
@@ -128,6 +129,7 @@ export function VoiceWidget({
     config: Object.keys(mergedConfig).length > 0 ? mergedConfig : undefined,
     metadata,
     trackedTools,
+    tokenProvider,
   });
   const [panelOpen, setPanelOpen] = useState(false);
 

@@ -1,0 +1,110 @@
+/**
+ * @pinecall/chat-core/react
+ *
+ * React hook for Pinecall text chat.
+ *
+ * @example
+ * ```tsx
+ * import { usePinecallChat } from "@pinecall/chat-core/react";
+ *
+ * function Chat() {
+ *   const { messages, send, connected, typing } = usePinecallChat({
+ *     agent: "florencia",
+ *   });
+ *
+ *   return (
+ *     <div>
+ *       {messages.map((m) => (
+ *         <p key={m.id}>{m.role}: {m.text}</p>
+ *       ))}
+ *       <input onKeyDown={(e) => {
+ *         if (e.key === "Enter") {
+ *           send(e.currentTarget.value);
+ *           e.currentTarget.value = "";
+ *         }
+ *       }} />
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+import { useSyncExternalStore, useRef, useCallback, useEffect } from "react";
+import { ChatSession } from "./ChatSession";
+import type { ChatSessionOptions, ChatMessage } from "./types";
+
+export interface UsePinecallChatReturn {
+  /** All messages in the conversation. */
+  messages: ChatMessage[];
+  /** Send a text message. */
+  send: (text: string) => void;
+  /** True when connected to the server. */
+  connected: boolean;
+  /** True while the bot is streaming a response. */
+  typing: boolean;
+  /** Partial text of the current response being streamed. */
+  streamingText: string;
+  /** Current error, if any. */
+  error: string | null;
+  /** Inject dynamic context into the LLM prompt. */
+  setContext: (key: string, value: string | null) => void;
+  /** Connect to the chat server. */
+  connect: () => void;
+  /** Disconnect from the chat server. */
+  disconnect: () => void;
+}
+
+/**
+ * React hook for Pinecall text chat.
+ *
+ * Creates a ChatSession and exposes reactive state via useSyncExternalStore.
+ * The session auto-connects on mount and disconnects on unmount.
+ */
+export function usePinecallChat(
+  opts: ChatSessionOptions & {
+    /** Set to false to disable auto-connect on mount. @default true */
+    autoConnect?: boolean;
+  },
+): UsePinecallChatReturn {
+  const sessionRef = useRef<ChatSession | null>(null);
+
+  // Stable session instance
+  if (!sessionRef.current) {
+    sessionRef.current = new ChatSession(opts);
+  }
+  const session = sessionRef.current;
+
+  // useSyncExternalStore for reactive state
+  const state = useSyncExternalStore(
+    useCallback((cb: () => void) => session.subscribe(cb), [session]),
+    useCallback(() => session.getState(), [session]),
+  );
+
+  // Auto-connect on mount
+  useEffect(() => {
+    if (opts.autoConnect !== false) {
+      session.connect();
+    }
+    return () => {
+      session.destroy();
+      sessionRef.current = null;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return {
+    messages: state.messages,
+    send: useCallback((text: string) => session.send(text), [session]),
+    connected: state.status === "connected",
+    typing: state.typing,
+    streamingText: state.streamingText,
+    error: state.error,
+    setContext: useCallback(
+      (key: string, value: string | null) => session.setContext(key, value),
+      [session],
+    ),
+    connect: useCallback(() => session.connect(), [session]),
+    disconnect: useCallback(() => session.disconnect(), [session]),
+  };
+}
+
+// Re-export core types for convenience
+export type { ChatSessionOptions, ChatMessage, ChatSessionState } from "./types";

@@ -148,11 +148,22 @@ export class VoiceSession extends EventTarget {
         "",
       );
 
-      const tRes = await fetch(
-        `${base}/webrtc/token?agent_id=${encodeURIComponent(this.opts.agent)}`,
-      );
-      if (!tRes.ok) throw new Error(`Token: ${tRes.status}`);
-      const { token, server: voiceServer } = await tRes.json();
+      // Fetch token — use tokenProvider (backend proxy) or direct fetch (allowedOrigins)
+      let token: string;
+      let voiceServer: string;
+      if (this.opts.tokenProvider) {
+        const t = await this.opts.tokenProvider();
+        token = t.token;
+        voiceServer = t.server;
+      } else {
+        const tRes = await fetch(
+          `${base}/webrtc/token?agent_id=${encodeURIComponent(this.opts.agent)}`,
+        );
+        if (!tRes.ok) throw new Error(`Token: ${tRes.status}`);
+        const t = await tRes.json();
+        token = t.token;
+        voiceServer = t.server;
+      }
       if (!voiceServer) throw new Error("Token response missing server URL");
 
       let ice: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
