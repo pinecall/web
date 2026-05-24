@@ -1,6 +1,6 @@
 {
   "name": "@pinecall/voice-core",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "description": "Framework-agnostic WebRTC voice session client for Pinecall agents",
   "license": "MIT",
   "type": "module",
