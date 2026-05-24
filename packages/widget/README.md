@@ -10,8 +10,10 @@
   <a href="#install">Install</a> ·
   <a href="#quick-start">Quick Start</a> ·
   <a href="#props">Props</a> ·
+  <a href="#multi-language">Languages</a> ·
   <a href="#theme-presets">Presets</a> ·
   <a href="#theme-customization">Theming</a> ·
+  <a href="#tools-api">Tools</a> ·
   <a href="#usevoicesession-hook">Hook</a> ·
   <a href="#advanced-usage">Advanced</a>
 </p>
@@ -23,6 +25,9 @@
 - [Install](#install)
 - [Quick Start](#quick-start)
 - [Props](#props)
+- [Multi-Language](#multi-language)
+  - [LanguagePreset](#languagepreset)
+  - [Behavior](#behavior)
 - [Theme Presets](#theme-presets)
 - [Theme Customization](#theme-customization)
   - [VoiceWidgetTheme Reference](#voicewidgettheme-reference)
@@ -37,6 +42,7 @@
   - [Accessing Raw Events (Core Session)](#accessing-raw-events-core-session)
   - [Creating Custom Presets](#creating-custom-presets)
 - [Tools API](#tools-api)
+  - [How It Works](#how-it-works)
   - [`trackedTools` Prop](#trackedtools-prop)
   - [`ToolUI` Type](#toolui-type)
   - [`useVoice()` Context Hook](#usevoice-context-hook)
