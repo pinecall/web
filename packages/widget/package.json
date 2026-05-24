@@ -1,6 +1,6 @@
 {
   "name": "@pinecall/voice-widget",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "React voice widget for Pinecall agents",
   "license": "MIT",
   "type": "module",
@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pinecall/voice-core": "workspace:*"
+    "@pinecall/voice-core": "^0.2.1"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
