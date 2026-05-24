@@ -1,6 +1,6 @@
 {
   "name": "@pinecall/voice-widget",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "React voice widget for Pinecall agents",
   "license": "MIT",
   "type": "module",
@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pinecall/voice-core": "^0.2.1"
+    "@pinecall/voice-core": "^0.2.5"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
@@ -56,5 +56,9 @@
     "react",
     "widget",
     "pinecall"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pinecall/webrtc"
+  }
 }
