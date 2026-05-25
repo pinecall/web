@@ -100,6 +100,7 @@ export function VoiceWidget({
   defaultLanguage,
   onLanguageChange,
   tokenProvider,
+  onIdleClick,
   children,
 }: VoiceWidgetProps & { children?: ReactNode }) {
   const hasLanguages = languages && Object.keys(languages).length >= 2;
@@ -210,9 +211,13 @@ export function VoiceWidget({
       session.disconnect();
       setPanelOpen(false);
     } else if (session.status === "idle" || session.status === "error") {
+      if (onIdleClick && session.status === "idle") {
+        onIdleClick();
+        return;
+      }
       await session.connect();
     }
-  }, [session]);
+  }, [session, onIdleClick]);
 
   const isActive = session.status === "connected";
   const idleLabel = label || `Talk to ${name}`;

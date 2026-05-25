@@ -1,5 +1,11 @@
 # @pinecall/voice-core
 
+## 0.2.7
+
+### Changed
+
+- Replaced README with concise npm-facing version pointing to [docs.pinecall.io](https://docs.pinecall.io/docs/voice-core/overview).
+
 ## 0.2.0
 
 ### Minor Changes

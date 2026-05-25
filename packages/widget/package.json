@@ -1,6 +1,6 @@
 {
   "name": "@pinecall/voice-widget",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "React voice widget for Pinecall agents",
   "license": "MIT",
   "type": "module",
