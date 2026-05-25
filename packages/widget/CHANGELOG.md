@@ -1,5 +1,11 @@
 # @pinecall/voice-widget
 
+## 0.2.6
+
+### Changed
+
+- Replaced README with concise npm-facing version pointing to [docs.pinecall.io](https://docs.pinecall.io/docs/voice-widget/overview).
+
 ## 0.2.0
 
 ### Minor Changes

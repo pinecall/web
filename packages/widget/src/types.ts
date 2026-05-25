@@ -232,6 +232,13 @@ export interface VoiceWidgetProps {
    */
   trackedTools?: string[];
   /**
+   * Intercept idle orb clicks. When set, clicking the idle orb calls
+   * this instead of auto-connecting. Use this to show a custom menu
+   * (e.g. voice / WhatsApp / call-me) before starting the call.
+   * Call `useVoice().connect()` from a child component to start manually.
+   */
+  onIdleClick?: () => void;
+  /**
    * Custom token provider — call your backend to generate tokens instead
    * of hitting /webrtc/token directly. Keeps API keys server-side.
    *
