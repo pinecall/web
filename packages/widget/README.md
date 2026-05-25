@@ -415,10 +415,12 @@ function AdvancedVoice() {
   useEffect(() => {
     // Listen to raw DataChannel events
     session.addEventListener("event", (e: CustomEvent) => {
-      const { event, tool_name, arguments: args } = e.detail;
+      const { event, tool_calls } = e.detail;
 
-      if (event === "llm.tool_call") {
-        console.log(`Tool call: ${tool_name}`, args);
+      if (event === "llm.tool_call" && tool_calls) {
+        for (const tc of tool_calls) {
+          console.log(`Tool call: ${tc.name}`, tc.arguments);
+        }
       }
       if (event === "bot.word") {
         // Real-time word-by-word tracking

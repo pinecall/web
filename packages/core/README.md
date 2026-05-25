@@ -419,7 +419,7 @@ The WebRTC DataChannel (`"events"`, ordered) carries JSON messages between clien
 
 | Event | Fields | Description |
 |-------|--------|-------------|
-| `audio.metrics` | `source`, `is_speech`, `level` | Server-side audio analysis. `source` is `"user"` or `"bot"`. |
+| `audio.metrics` | `source`, `energy_db`, `rms`, `peak`, `is_speech`, `vad_prob` | Server-side audio analysis. `source` is `"user"` or `"bot"`. Sent every ~100ms when enabled. |
 
 #### LLM / Tool Events (via `"event"` listener)
 
@@ -428,8 +428,8 @@ These events are **not** processed by the state machine but are forwarded throug
 | Event | Fields | Description |
 |-------|--------|-------------|
 | `llm.thinking` | — | LLM started generating a response |
-| `llm.tool_call` | `tool_name`, `arguments`, `call_id` | LLM requested a tool/function call |
-| `llm.tool_result` | `call_id`, `result` | Tool execution result sent back to LLM |
+| `llm.tool_call` | `tool_calls[]`, `msg_id`, `call_id` | LLM requested tool/function calls. Each item has `id`, `name`, `arguments`. |
+| `llm.tool_result` | `call_id`, `msg_id`, `results[]` | Tool execution results sent back to LLM. Each item has `tool_call_id`, `result`. |
 | `llm.response` | `text`, `finish_reason` | LLM finished generating (text may be empty if tool-only) |
 | `llm.error` | `error` | LLM error occurred |
 
@@ -444,13 +444,15 @@ These events are **not** processed by the state machine but are forwarded throug
 
 ```ts
 session.addEventListener("event", (e) => {
-  const { event, tool_name, arguments: args, result } = e.detail;
+  const { event, tool_calls, results } = e.detail;
 
-  if (event === "llm.tool_call") {
-    console.log(`Agent calling ${tool_name}(${JSON.stringify(args)})`);
+  if (event === "llm.tool_call" && tool_calls) {
+    for (const tc of tool_calls) {
+      console.log(`Agent calling ${tc.name}(${tc.arguments})`);
+    }
   }
   if (event === "llm.tool_result") {
-    console.log(`Tool result:`, result);
+    console.log(`Tool results:`, results);
   }
 });
 ```
