@@ -151,7 +151,7 @@ Session limits are configured on the agent (server-side SDK) and flow through to
 // Server-side (agent.js)
 const agent = pc.deploy("my-agent", {
   // ...voice, stt, llm config...
-  session_limits: {
+  sessionLimits: {
     idle_timeout_seconds: 20,   // hang up after 20s of silence
     idle_warning_seconds: 10,   // warn 10s before timeout
     max_duration_seconds: 600,  // hard cap at 10 minutes
