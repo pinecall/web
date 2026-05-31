@@ -184,79 +184,7 @@ export const HUB_CSS = /* css */ `
 }
 .vw-cm-note a { color: rgba(var(--vw-accent, 124, 58, 237), 1); text-decoration: none; }
 
-/* ── Transcript View ── */
-.vw-cm-transcript { display: flex; flex-direction: column; gap: 0; }
-
-.vw-cm-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 0 0 12px; border-bottom: 1px solid rgba(255, 255, 255, .06);
-}
-.vw-cm-head-icon {
-  width: 32px; height: 32px; border-radius: 50%;
-  background: rgba(var(--vw-accent, 124, 58, 237), .12);
-  display: grid; place-items: center;
-  color: rgba(var(--vw-accent, 124, 58, 237), 1);
-  font-size: 14px;
-}
-.vw-cm-head-icon.vw-cm-live {
-  animation: vwCmPulse 1.8s ease infinite;
-}
-@keyframes vwCmPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--vw-accent, 124, 58, 237), .4); }
-  50% { box-shadow: 0 0 0 6px rgba(var(--vw-accent, 124, 58, 237), 0); }
-}
-.vw-cm-meta { flex: 1; min-width: 0; }
-.vw-cm-phone { font-size: 13px; font-weight: 600; color: #fff; }
-.vw-cm-status-line {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 11px; color: rgba(255, 255, 255, .45);
-}
-.vw-cm-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: rgba(34, 197, 94, 1);
-  animation: vwCmDot 1.2s ease infinite;
-}
-.vw-cm-dot--ended { background: rgba(255, 255, 255, .3); animation: none; }
-@keyframes vwCmDot {
-  0%, 100% { opacity: 1; } 50% { opacity: .3; }
-}
-
-.vw-cm-body {
-  max-height: 260px; overflow-y: auto; padding: 12px 0;
-  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.1) transparent;
-}
-
-.vw-cm-msg {
-  padding: 6px 0; font-size: 13px; line-height: 1.5;
-  animation: vwCmMsgIn .2s ease;
-}
-@keyframes vwCmMsgIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-
-.vw-cm-msg--bot { color: rgba(255, 255, 255, .85); }
-.vw-cm-msg--user { color: rgba(var(--vw-accent, 124, 58, 237), .9); }
-.vw-cm-sender {
-  font-size: 10px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: .05em; margin-bottom: 2px; display: block;
-  color: rgba(255, 255, 255, .35);
-}
-.vw-cm-msg--user .vw-cm-sender { color: rgba(var(--vw-accent, 124, 58, 237), .5); }
-
-.vw-cm-cursor {
-  display: inline-block; width: 6px; height: 14px;
-  background: rgba(255, 255, 255, .5); margin-left: 2px;
-  animation: vwCmBlink .8s step-end infinite; vertical-align: text-bottom;
-}
-@keyframes vwCmBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-
-.vw-cm-tool {
-  display: flex; align-items: center; gap: 6px;
-  padding: 4px 8px; margin: 4px 0; border-radius: 6px;
-  background: rgba(255, 255, 255, .03); font-size: 11px;
-  color: rgba(255, 255, 255, .4);
-}
-.vw-cm-tool-icon { font-size: 12px; }
-.vw-cm-tool-name { font-weight: 600; }
-.vw-cm-tool-args { font-style: italic; }
+/* ── Dialing Animation (used inside hub before call connects) ── */
 
 .vw-cm-dialing {
   display: flex; flex-direction: column; align-items: center;
@@ -275,13 +203,6 @@ export const HUB_CSS = /* css */ `
 }
 .vw-cm-dialing-text { font-size: 13px; color: rgba(255, 255, 255, .5); }
 .vw-cm-dialing-phone { font-size: 12px; color: rgba(255, 255, 255, .3); }
-
-.vw-cm-ended {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 8px; padding: 12px 0 0; border-top: 1px solid rgba(255, 255, 255, .06);
-}
-.vw-cm-ended-text { font-size: 12px; color: rgba(255, 255, 255, .4); }
-.vw-cm-ended-text strong { color: #fff; }
 
 .vw-cm-error-view {
   display: flex; flex-direction: column; align-items: center;

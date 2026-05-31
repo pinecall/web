@@ -2,7 +2,18 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useVoice } from "./index.js";
 import { t } from "./locales.js";
 import { ChatView } from "./ChatView.js";
+import type { TranscriptMessage } from "@pinecall/voice-core";
 import type { AgentChannel, LocaleStrings, ChatConfig } from "./types.js";
+
+// ── Call Me state (lifted to VoiceWidget) ─────────────────────────
+
+export interface CallMeState {
+  status: "dialing" | "connected" | "ended" | "error";
+  messages: TranscriptMessage[];
+  duration: number;
+  phone: string;
+  error?: string;
+}
 
 // ── Inline SVG icons (no external deps) ──────────────────────────
 
@@ -78,24 +89,17 @@ interface ContactHubProps {
   server?: string;
   chat?: ChatConfig;
   tokenProvider?: () => Promise<{ token: string; server: string; expires_in?: number }>;
+  /** Called when Call Me state changes — VoiceWidget renders the UI */
+  onCallMeState?: (state: CallMeState | null) => void;
 }
 
-interface TranscriptMsg {
-  id: number;
-  role: "bot" | "user" | "tool";
-  text?: string;
-  messageId?: string;
-  streaming?: boolean;
-  finalized?: boolean;
-  name?: string;
-  args?: string;
-}
+// TranscriptMsg removed — we now use TranscriptMessage from voice-core
 
 // ── ContactHub Component ──────────────────────────────────────────
 
 export function ContactHub({
   open, onClose, channels, name, locale, labels, avatar, callMeEndpoint,
-  agent, server, chat, tokenProvider,
+  agent, server, chat, tokenProvider, onCallMeState,
 }: ContactHubProps) {
   const [view, setView] = useState<"menu" | "call" | "transcript" | "chat">("menu");
   const [phone, setPhone] = useState("");
@@ -130,6 +134,7 @@ export function ContactHub({
   const handleStartCall = (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone.trim()) return;
+    // Start the SSE call — close hub, CallMeSSE manages state via onCallMeState
     setView("transcript");
   };
 
@@ -137,6 +142,11 @@ export function ContactHub({
     setView("call");
     setErrorMsg(err || t(locale, "callMe.error", labels));
     setStatus("error");
+  };
+
+  const handleCallMeConnected = () => {
+    // Once call connects, close the hub — VoiceWidget will render the transcript
+    onClose();
   };
 
   if (!open) return null;
@@ -255,7 +265,7 @@ export function ContactHub({
             onVoiceCall={handleVoiceFromChat}
           />
         ) : (
-          <CallMeTranscript
+          <CallMeSSE
             phone={phone.trim()}
             endpoint={callMeEndpoint!}
             name={name}
@@ -263,6 +273,8 @@ export function ContactHub({
             labels={labels}
             onClose={onClose}
             onError={handleTranscriptError}
+            onCallMeState={onCallMeState}
+            onConnected={handleCallMeConnected}
           />
         )}
       </div>
@@ -270,9 +282,9 @@ export function ContactHub({
   );
 }
 
-// ── CallMeTranscript ──────────────────────────────────────────────
+// ── CallMeSSE — SSE parser that emits state to VoiceWidget ────────
 
-interface CallMeTranscriptProps {
+interface CallMeSSEProps {
   phone: string;
   endpoint: string;
   name: string;
@@ -280,125 +292,132 @@ interface CallMeTranscriptProps {
   labels?: Partial<LocaleStrings>;
   onClose: () => void;
   onError: (err: string) => void;
+  onCallMeState?: (state: CallMeState | null) => void;
+  onConnected?: () => void;
 }
 
-function CallMeTranscript({ phone, endpoint, name, locale, labels, onClose, onError }: CallMeTranscriptProps) {
-  const [callStatus, setCallStatus] = useState<"dialing" | "connected" | "ended" | "error">("dialing");
-  const [messages, setMessages] = useState<TranscriptMsg[]>([]);
-  const [duration, setDuration] = useState(0);
+function CallMeSSE({ phone, endpoint, name, locale, labels, onClose, onError, onCallMeState, onConnected }: CallMeSSEProps) {
+  const [localStatus, setLocalStatus] = useState<"dialing" | "connected" | "error">("dialing");
   const [errorMsg, setErrorMsg] = useState("");
-  const bodyRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef = useRef<number | null>(null);
   const idCounter = useRef(0);
+  const messagesRef = useRef<TranscriptMessage[]>([]);
+  const startTimeRef = useRef<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const durationRef = useRef(0);
 
   const l = (key: keyof LocaleStrings) => t(locale, key, labels, { name });
 
-  // Auto-scroll
-  useEffect(() => {
-    if (bodyRef.current) {
-      requestAnimationFrame(() => {
-        bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
-      });
-    }
-  }, [messages]);
-
-  // Duration counter
-  useEffect(() => {
-    if (callStatus === "connected") {
-      startTimeRef.current = Date.now();
-      timerRef.current = setInterval(() => {
-        setDuration(Math.floor((Date.now() - startTimeRef.current!) / 1000));
-      }, 1000);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [callStatus]);
+  // Emit current state to parent
+  const emitState = useCallback((status: CallMeState["status"]) => {
+    onCallMeState?.({
+      status,
+      messages: [...messagesRef.current],
+      duration: durationRef.current,
+      phone,
+    });
+  }, [onCallMeState, phone]);
 
   const handleSSE = useCallback((event: string, data: any) => {
     switch (event) {
-      case "dialing":
-        setCallStatus("dialing");
-        break;
-      case "call.started":
-        setCallStatus("connected");
-        break;
-      case "bot.word":
-        setMessages((prev) => {
-          const mid = data.messageId;
-          const idx = prev.findIndex((m) => m.role === "bot" && m.messageId === mid);
-          if (idx >= 0) {
-            const updated = [...prev];
-            updated[idx] = { ...updated[idx], text: data.text };
-            return updated;
-          }
-          return [...prev, { id: ++idCounter.current, role: "bot", messageId: mid, text: data.text, streaming: true }];
-        });
-        break;
-      case "bot.confirmed":
-        setMessages((prev) => {
-          const mid = data.messageId;
-          const idx = prev.findIndex((m) => m.role === "bot" && m.messageId === mid);
-          if (idx >= 0) {
-            const updated = [...prev];
-            updated[idx] = { ...updated[idx], text: data.text, streaming: false };
-            return updated;
-          }
-          return [...prev, { id: ++idCounter.current, role: "bot", messageId: mid, text: data.text, streaming: false }];
-        });
-        break;
-      case "user.speaking":
-        if (data.text) {
-          setMessages((prev) => {
-            const lastUserIdx = findLastIndex(prev, (m) => m.role === "user");
-            const hasBotAfter = lastUserIdx >= 0 && prev.slice(lastUserIdx + 1).some((m) => m.role === "bot");
-            if (lastUserIdx >= 0 && !hasBotAfter) {
-              const updated = [...prev];
-              updated[lastUserIdx] = { ...updated[lastUserIdx], text: data.text, streaming: true, finalized: false };
-              return updated;
-            }
-            return [...prev, { id: ++idCounter.current, role: "user", text: data.text, streaming: true, finalized: false }];
-          });
-        }
-        break;
-      case "user.message":
-        if (data.text) {
-          setMessages((prev) => {
-            const idx = findLastIndex(prev, (m) => m.role === "user" && !m.finalized);
-            if (idx >= 0) {
-              const updated = [...prev];
-              updated[idx] = { ...updated[idx], text: data.text, streaming: false, finalized: true };
-              return updated;
-            }
-            return [...prev, { id: ++idCounter.current, role: "user", text: data.text, streaming: false, finalized: true }];
-          });
-        }
-        break;
-      case "tool.call": {
-        let parsed = "";
-        try {
-          const obj = JSON.parse(data.args || "{}");
-          parsed = Object.entries(obj).map(([k, v]) => `${k}: ${v}`).join(", ");
-        } catch { parsed = data.args || ""; }
-        setMessages((prev) => [...prev, { id: ++idCounter.current, role: "tool", name: data.name, args: parsed }]);
+      case "call.started": {
+        setLocalStatus("connected");
+        startTimeRef.current = Date.now();
+        // Start duration timer
+        timerRef.current = setInterval(() => {
+          durationRef.current = Math.floor((Date.now() - startTimeRef.current!) / 1000);
+          emitState("connected");
+        }, 1000);
+        emitState("connected");
+        onConnected?.();
         break;
       }
-      case "call.ended":
-        setDuration(data.duration || 0);
-        setCallStatus("ended");
+      case "bot.word": {
+        const mid = data.messageId;
+        const msgs = messagesRef.current;
+        const idx = msgs.findIndex((m) => m.role === "bot" && m.messageId === mid);
+        if (idx >= 0) {
+          msgs[idx] = { ...msgs[idx], text: data.text, speaking: true };
+        } else {
+          msgs.push({ id: ++idCounter.current, role: "bot", messageId: mid, text: data.text, speaking: true });
+        }
+        messagesRef.current = [...msgs];
+        emitState("connected");
+        break;
+      }
+      case "bot.confirmed": {
+        const mid = data.messageId;
+        const msgs = messagesRef.current;
+        const idx = msgs.findIndex((m) => m.role === "bot" && m.messageId === mid);
+        if (idx >= 0) {
+          msgs[idx] = { ...msgs[idx], text: data.text, speaking: false };
+        } else {
+          msgs.push({ id: ++idCounter.current, role: "bot", messageId: mid, text: data.text, speaking: false });
+        }
+        messagesRef.current = [...msgs];
+        emitState("connected");
+        break;
+      }
+      case "user.speaking": {
+        if (!data.text) break;
+        const msgs = messagesRef.current;
+        const lastUserIdx = findLastIndex(msgs, (m) => m.role === "user");
+        const hasBotAfter = lastUserIdx >= 0 && msgs.slice(lastUserIdx + 1).some((m) => m.role === "bot");
+        if (lastUserIdx >= 0 && !hasBotAfter) {
+          msgs[lastUserIdx] = { ...msgs[lastUserIdx], text: data.text, isInterim: true };
+        } else {
+          msgs.push({ id: ++idCounter.current, role: "user", text: data.text, isInterim: true });
+        }
+        messagesRef.current = [...msgs];
+        emitState("connected");
+        break;
+      }
+      case "user.message": {
+        if (!data.text) break;
+        const msgs = messagesRef.current;
+        const idx = findLastIndex(msgs, (m) => m.role === "user" && !!m.isInterim);
+        if (idx >= 0) {
+          msgs[idx] = { ...msgs[idx], text: data.text, isInterim: false };
+        } else {
+          msgs.push({ id: ++idCounter.current, role: "user", text: data.text, isInterim: false });
+        }
+        messagesRef.current = [...msgs];
+        emitState("connected");
+        break;
+      }
+      case "call.ended": {
+        durationRef.current = data.duration || durationRef.current;
         if (timerRef.current) clearInterval(timerRef.current);
+        onCallMeState?.({
+          status: "ended",
+          messages: [...messagesRef.current],
+          duration: durationRef.current,
+          phone,
+        });
         break;
-      case "error":
+      }
+      case "error": {
         setErrorMsg(data.message || l("callMe.error"));
-        setCallStatus("error");
+        setLocalStatus("error");
+        onCallMeState?.({
+          status: "error",
+          messages: [],
+          duration: 0,
+          phone,
+          error: data.message,
+        });
         break;
+      }
     }
-  }, [locale, labels, name]);
+  }, [emitState, onCallMeState, onConnected, phone, locale, labels, name]);
 
   // SSE stream
   useEffect(() => {
     const controller = new AbortController();
     abortRef.current = controller;
+
+    // Emit dialing state immediately
+    onCallMeState?.({ status: "dialing", messages: [], duration: 0, phone });
 
     (async () => {
       let res: Response;
@@ -412,7 +431,8 @@ function CallMeTranscript({ phone, endpoint, name, locale, labels, onClose, onEr
       } catch (err: any) {
         if (err.name === "AbortError") return;
         setErrorMsg(l("callMe.error"));
-        setCallStatus("error");
+        setLocalStatus("error");
+        onError(l("callMe.error"));
         return;
       }
 
@@ -420,7 +440,7 @@ function CallMeTranscript({ phone, endpoint, name, locale, labels, onClose, onEr
       if (ct.includes("application/json")) {
         const data = await res.json().catch(() => ({}));
         setErrorMsg(data.error || l("callMe.error"));
-        setCallStatus("error");
+        setLocalStatus("error");
         onError(data.error);
         return;
       }
@@ -462,86 +482,28 @@ function CallMeTranscript({ phone, endpoint, name, locale, labels, onClose, onEr
     };
   }, [phone, endpoint]);
 
-  const handleClose = () => {
-    if (abortRef.current) abortRef.current.abort();
-    onClose();
-  };
+  // Render minimal UI inside the hub — just dialing or error state
+  // Once connected, the hub closes and VoiceWidget renders the transcript
 
-  return (
-    <div className="vw-cm-transcript">
-      {/* Header */}
-      <div className="vw-cm-head">
-        <div className={`vw-cm-head-icon ${callStatus === "connected" ? "vw-cm-live" : ""}`}>
-          <IconPhone size={14} />
-        </div>
-        <div className="vw-cm-meta">
-          <div className="vw-cm-phone">{formatPhone(phone)}</div>
-          <div className="vw-cm-status-line">
-            <span className={`vw-cm-dot ${callStatus === "ended" ? "vw-cm-dot--ended" : ""}`} />
-            {callStatus === "dialing" && l("callMe.calling")}
-            {callStatus === "connected" && formatDuration(duration)}
-            {callStatus === "ended" && `${l("callMe.ended")} · ${formatDuration(duration)}`}
-            {callStatus === "error" && "Error"}
-          </div>
-        </div>
-        {(callStatus === "ended" || callStatus === "error") && (
-          <button className="vw-hub-close" onClick={handleClose}><IconX size={14} /></button>
-        )}
-      </div>
-
-      {/* Dialing */}
-      {callStatus === "dialing" && (
-        <div className="vw-cm-dialing">
-          <div className="vw-cm-dialing-ring"><IconPhone size={22} /></div>
-          <div className="vw-cm-dialing-text">{l("callMe.calling")}</div>
-          <div className="vw-cm-dialing-phone">{formatPhone(phone)}</div>
-        </div>
-      )}
-
-      {/* Error */}
-      {callStatus === "error" && (
+  if (localStatus === "error") {
+    return (
+      <div className="vw-cm">
         <div className="vw-cm-error-view">
           <div className="vw-cm-error-text">{errorMsg}</div>
-          <button className="vw-hub-close" onClick={handleClose}>{l("callMe.back")}</button>
+          <button className="vw-hub-close" onClick={onClose}>{l("callMe.back")}</button>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Messages */}
-      {(callStatus === "connected" || callStatus === "ended") && (
-        <>
-          <div className="vw-cm-body" ref={bodyRef}>
-            {messages.map((msg) => {
-              if (msg.role === "tool") {
-                return (
-                  <div key={msg.id} className="vw-cm-tool">
-                    <span className="vw-cm-tool-icon">⚙️</span>
-                    <span className="vw-cm-tool-name">{msg.name}</span>
-                    {msg.args && <span className="vw-cm-tool-args">({msg.args})</span>}
-                  </div>
-                );
-              }
-              return (
-                <div key={msg.id} className={`vw-cm-msg vw-cm-msg--${msg.role}${msg.streaming ? " vw-cm-msg--streaming" : ""}`}>
-                  <span className="vw-cm-sender">
-                    {msg.role === "bot" ? name : "You"}
-                  </span>
-                  {msg.text}
-                  {msg.streaming && <span className="vw-cm-cursor" />}
-                </div>
-              );
-            })}
-          </div>
-
-          {callStatus === "ended" && (
-            <div className="vw-cm-ended">
-              <div className="vw-cm-ended-text">
-                {l("callMe.ended")} · <strong>{formatDuration(duration)}</strong>
-              </div>
-              <button className="vw-hub-close" onClick={handleClose}><IconX size={14} /></button>
-            </div>
-          )}
-        </>
-      )}
+  return (
+    <div className="vw-cm">
+      <div className="vw-cm-dialing">
+        <div className="vw-cm-dialing-ring"><IconPhone size={22} /></div>
+        <div className="vw-cm-dialing-text">{l("callMe.calling")}</div>
+        <div className="vw-cm-dialing-phone">{formatPhone(phone)}</div>
+      </div>
     </div>
   );
 }
+
