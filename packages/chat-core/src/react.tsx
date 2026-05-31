@@ -28,7 +28,7 @@
  * }
  * ```
  */
-import { useSyncExternalStore, useRef, useCallback, useEffect } from "react";
+import { useSyncExternalStore, useState, useCallback, useEffect } from "react";
 import { ChatSession } from "./ChatSession";
 import type { ChatSessionOptions, ChatMessage } from "./types";
 
@@ -65,13 +65,10 @@ export function usePinecallChat(
     autoConnect?: boolean;
   },
 ): UsePinecallChatReturn {
-  const sessionRef = useRef<ChatSession | null>(null);
-
-  // Stable session instance
-  if (!sessionRef.current) {
-    sessionRef.current = new ChatSession(opts);
-  }
-  const session = sessionRef.current;
+  // Use state for the session so React re-renders when it changes
+  const [session, setSession] = useState<ChatSession>(
+    () => new ChatSession(opts),
+  );
 
   // useSyncExternalStore for reactive state
   const state = useSyncExternalStore(
@@ -79,14 +76,21 @@ export function usePinecallChat(
     useCallback(() => session.getState(), [session]),
   );
 
-  // Auto-connect on mount
+  // Auto-connect on mount, destroy on unmount
   useEffect(() => {
+    // In Strict Mode, the previous session was destroyed.
+    // Create a fresh one if the current session was destroyed.
+    let activeSession = session;
+    if (activeSession.getState().status === "destroyed") {
+      activeSession = new ChatSession(opts);
+      setSession(activeSession);
+    }
+
     if (opts.autoConnect !== false) {
-      session.connect();
+      activeSession.connect();
     }
     return () => {
-      session.destroy();
-      sessionRef.current = null;
+      activeSession.destroy();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

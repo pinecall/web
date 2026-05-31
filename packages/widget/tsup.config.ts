@@ -9,6 +9,7 @@ export default defineConfig({
   treeshake: true,
   target: "es2022",
   external: ["react", "react-dom", "react/jsx-runtime"],
+  noExternal: ["@pinecall/chat-core", "marked"],
   outExtension({ format }) {
     return { js: format === "cjs" ? ".cjs" : ".js" };
   },

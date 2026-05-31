@@ -306,6 +306,7 @@ export class ChatSession extends EventTarget {
   /** Tear down the session and clear subscribers. Do not reuse after this. */
   destroy(): void {
     this.disconnect();
+    this.setState({ status: "destroyed" });
     this.listeners.clear();
   }
 }

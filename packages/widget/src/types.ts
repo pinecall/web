@@ -236,6 +236,10 @@ export interface VoiceWidgetProps {
    * this instead of auto-connecting. Use this to show a custom menu
    * (e.g. voice / WhatsApp / call-me) before starting the call.
    * Call `useVoice().connect()` from a child component to start manually.
+   *
+   * Note: If the widget auto-discovers multiple channels, it shows the
+   * built-in ContactHub popover instead. `onIdleClick` takes precedence
+   * over the auto-discovery behavior.
    */
   onIdleClick?: () => void;
   /**
@@ -254,4 +258,135 @@ export interface VoiceWidgetProps {
    * ```
    */
   tokenProvider?: () => Promise<{ token: string; server: string; expires_in?: number }>;
+  /**
+   * Locale for built-in strings (ContactHub popover, status labels).
+   * Default: `"en"`
+   */
+  locale?: "en" | "es" | "de" | "pt";
+  /**
+   * Override individual locale strings. Merged on top of the locale preset.
+   *
+   * @example
+   * ```tsx
+   * <VoiceWidget locale="es" labels={{ "callMe.formNote": "Llámanos..." }} />
+   * ```
+   */
+  labels?: Partial<LocaleStrings>;
+  /**
+   * Avatar emoji or short text displayed in the ContactHub header.
+   * @example "🌸"
+   */
+  avatar?: string;
+  /**
+   * Endpoint URL for "Call Me" outbound calls.
+   * When set AND the agent has phone channels, a "Call Me" option
+   * appears in the ContactHub popover.
+   *
+   * The widget POSTs `{ phone }` to this endpoint and expects an SSE stream
+   * with `event: transcript` data.
+   *
+   * @example "/api/call-me"
+   */
+  callMeEndpoint?: string;
+  /**
+   * Explicit channel list for the ContactHub popover.
+   * When provided with ≥2 channels (or 1 + callMeEndpoint, or any whatsapp),
+   * clicking the idle orb shows a contact menu instead of connecting directly.
+   *
+   * @example
+   * ```tsx
+   * <VoiceWidget
+   *   agent="florencia"
+   *   channels={[
+   *     { type: "webrtc" },
+   *     { type: "chat" },
+   *     { type: "whatsapp", phone: "+51987654321" },
+   *     { type: "phone", numbers: ["+13186330963"] },
+   *   ]}
+   *   callMeEndpoint="/api/call-me"
+   * />
+   * ```
+   */
+  channels?: AgentChannel[];
+  /**
+   * Chat configuration for the built-in LLM chat view.
+   * When provided AND channels includes `{ type: "chat" }`, the ContactHub
+   * shows a "Chat" option that opens an embedded text chat.
+   *
+   * @example
+   * ```tsx
+   * <VoiceWidget
+   *   agent="florencia"
+   *   channels={[{ type: "webrtc" }, { type: "chat" }]}
+   *   chat={{
+   *     greeting: "¡Hola! Soy Florencia...",
+   *     quickOptions: [
+   *       { label: "💇 Servicios", query: "¿Qué servicios ofrecen?" },
+   *     ],
+   *   }}
+   * />
+   * ```
+   */
+  chat?: ChatConfig;
+}
+
+// ── Locale strings ────────────────────────────────────────────────
+
+/**
+ * All localizable strings used by the widget.
+ * Keys use dot-notation namespacing.
+ */
+export interface LocaleStrings {
+  "hub.title": string;
+  "hub.subtitle": string;
+  "hub.voice": string;
+  "hub.voiceDesc": string;
+  "hub.chat": string;
+  "hub.chatDesc": string;
+  "hub.whatsapp": string;
+  "hub.whatsappDesc": string;
+  "hub.callMe": string;
+  "hub.callMeDesc": string;
+  "callMe.title": string;
+  "callMe.placeholder": string;
+  "callMe.submit": string;
+  "callMe.formNote": string;
+  "callMe.calling": string;
+  "callMe.ended": string;
+  "callMe.error": string;
+  "callMe.back": string;
+}
+
+// ── Agent info from auto-discovery ────────────────────────────────
+
+export interface AgentChannel {
+  type: "webrtc" | "phone" | "whatsapp" | "chat" | "mic";
+  numbers?: string[];
+  phone?: string;
+}
+
+export interface AgentInfo {
+  agent: string;
+  channels: AgentChannel[];
+}
+
+// ── Chat config ───────────────────────────────────────────────────
+
+export interface ChatQuickOption {
+  /** Button label displayed to the user. */
+  label: string;
+  /** Message text sent when clicked. */
+  query: string;
+}
+
+export interface ChatConfig {
+  /** Initial greeting shown when the chat opens. Supports markdown. */
+  greeting?: string;
+  /** Quick-reply buttons shown before the user sends a message. */
+  quickOptions?: ChatQuickOption[];
+  /**
+   * Custom token provider for chat. If not set, falls back to the
+   * widget-level tokenProvider (which should handle channel=chat).
+   */
+  tokenProvider?: () => Promise<{ token: string; server: string }>;
 }

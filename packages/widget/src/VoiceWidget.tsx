@@ -14,7 +14,10 @@ import type { TranscriptMessage, ToolUI, SessionStatus, VoiceSessionState } from
 import type { VoiceWidgetProps, VoiceWidgetTheme } from "./types";
 import { useVoiceSession } from "./useVoiceSession";
 import { WIDGET_CSS } from "./styles";
+import { HUB_CSS } from "./hub-styles";
+import { CHAT_VIEW_CSS } from "./hub-chat-styles";
 import { PRESETS } from "./presets";
+import { ContactHub } from "./ContactHub";
 
 // ── Voice Context — lets consumers render tool UI anywhere ──────────
 
@@ -101,6 +104,12 @@ export function VoiceWidget({
   onLanguageChange,
   tokenProvider,
   onIdleClick,
+  locale = "en",
+  labels: labelOverrides,
+  avatar,
+  callMeEndpoint,
+  channels: channelsProp,
+  chat,
   children,
 }: VoiceWidgetProps & { children?: ReactNode }) {
   const hasLanguages = languages && Object.keys(languages).length >= 2;
@@ -123,6 +132,13 @@ export function VoiceWidget({
     () => trackedToolsProp ?? (tools ? Object.keys(tools) : undefined),
     [tools, trackedToolsProp],
   );
+
+  // ── ContactHub — driven by explicit channels prop ──
+  const hubChannels = channelsProp ?? [];
+  const showHub = hubChannels.length >= 2
+    || (hubChannels.length === 1 && !!callMeEndpoint)
+    || hubChannels.some((c) => c.type === "whatsapp");
+  const [hubOpen, setHubOpen] = useState(false);
 
   const session = useVoiceSession({
     server,
@@ -153,8 +169,15 @@ export function VoiceWidget({
     if (document.getElementById("vw-styles")) return;
     const el = document.createElement("style");
     el.id = "vw-styles";
-    el.textContent = WIDGET_CSS;
+    el.textContent = WIDGET_CSS + HUB_CSS + CHAT_VIEW_CSS;
     document.head.appendChild(el);
+  }, []);
+
+  /* Listen for external "open chat" events (e.g. Navbar "Reservar" button) */
+  useEffect(() => {
+    const handler = () => setHubOpen(true);
+    window.addEventListener("blossom:open-chat", handler);
+    return () => window.removeEventListener("blossom:open-chat", handler);
   }, []);
 
   useEffect(() => {
@@ -211,13 +234,18 @@ export function VoiceWidget({
       session.disconnect();
       setPanelOpen(false);
     } else if (session.status === "idle" || session.status === "error") {
+      // Priority: onIdleClick > ContactHub > direct connect
       if (onIdleClick && session.status === "idle") {
         onIdleClick();
         return;
       }
+      if (showHub && session.status === "idle" && !onIdleClick) {
+        setHubOpen(true);
+        return;
+      }
       await session.connect();
     }
-  }, [session, onIdleClick]);
+  }, [session, onIdleClick, showHub]);
 
   const isActive = session.status === "connected";
   const idleLabel = label || `Talk to ${name}`;
@@ -359,17 +387,27 @@ export function VoiceWidget({
     </div>
   );
 
-  // If children are provided, wrap in context provider so useVoice() works
-  if (children) {
-    return (
-      <VoiceContext.Provider value={session}>
-        {widget}
-        {children}
-      </VoiceContext.Provider>
-    );
-  }
-
-  return widget;
+  // Always wrap in context provider — ContactHub needs useVoice()
+  return (
+    <VoiceContext.Provider value={session}>
+      {widget}
+      <ContactHub
+        open={hubOpen}
+        onClose={() => setHubOpen(false)}
+        channels={hubChannels}
+        name={name}
+        locale={locale}
+        labels={labelOverrides}
+        avatar={avatar}
+        callMeEndpoint={callMeEndpoint}
+        agent={agent}
+        server={server}
+        chat={chat}
+        tokenProvider={tokenProvider}
+      />
+      {children}
+    </VoiceContext.Provider>
+  );
 }
 
 /** Single message in the transcript panel */
