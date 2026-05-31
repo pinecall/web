@@ -1,6 +1,7 @@
 export { VoiceWidget, useVoice } from "./VoiceWidget";
 export { useVoiceSession } from "./useVoiceSession";
 export { ContactHub } from "./ContactHub";
+export type { CallMeState } from "./ContactHub";
 export { useAgentInfo } from "./useAgentInfo";
 export { t } from "./locales";
 export { PRESETS } from "./presets";

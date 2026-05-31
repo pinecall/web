@@ -18,6 +18,7 @@ import { HUB_CSS } from "./hub-styles";
 import { CHAT_VIEW_CSS } from "./hub-chat-styles";
 import { PRESETS } from "./presets";
 import { ContactHub } from "./ContactHub";
+import type { CallMeState } from "./ContactHub";
 
 // ── Voice Context — lets consumers render tool UI anywhere ──────────
 
@@ -149,6 +150,7 @@ export function VoiceWidget({
     tokenProvider,
   });
   const [panelOpen, setPanelOpen] = useState(false);
+  const [callMeState, setCallMeState] = useState<CallMeState | null>(null);
 
   /** Merge preset + custom theme overrides → CSS custom properties */
   const themeStyle = useMemo(() => {
@@ -248,34 +250,53 @@ export function VoiceWidget({
   }, [session, onIdleClick, showHub]);
 
   const isActive = session.status === "connected";
+  const isCallMeActive = callMeState != null && (callMeState.status === "connected" || callMeState.status === "dialing");
+  const isCallMeEnded = callMeState?.status === "ended";
+  const isAnythingActive = isActive || isCallMeActive;
   const idleLabel = label || `Talk to ${name}`;
 
-  const orbState = session.agentSpeaking
-    ? "speaking"
-    : session.userSpeaking
-      ? "user-speaking"
-      : session.phase === "thinking"
-        ? "thinking"
-        : session.idleWarning != null
-          ? "idle-warning"
-          : isActive
-            ? "active"
-            : session.status === "connecting"
-              ? "connecting"
-              : "";
+  const orbState = isCallMeActive
+    ? "active"
+    : session.agentSpeaking
+      ? "speaking"
+      : session.userSpeaking
+        ? "user-speaking"
+        : session.phase === "thinking"
+          ? "thinking"
+          : session.idleWarning != null
+            ? "idle-warning"
+            : isActive
+              ? "active"
+              : session.status === "connecting"
+                ? "connecting"
+                : "";
 
   const statusLabel = (() => {
     if (session.status === "connecting") return "Connecting";
     if (session.status === "error") return session.error || "Connection failed";
+    if (isCallMeActive) return `📞 ${name} · ${fmt(callMeState!.duration)}`;
+    if (isCallMeEnded) return `📞 Call ended · ${fmt(callMeState!.duration)}`;
     if (!isActive) return idleLabel;
     return `${name} · ${fmt(session.duration)}`;
   })();
 
-  /* Active bubble — show the most recent message that has text.
-     Bot messages start empty (bot.speaking) — user bubble stays until first bot.word. */
-  const activeBubble = [...session.messages]
-    .reverse()
-    .find((m) => m.role === "user" || (m.role === "bot" && m.text));
+  /* Active bubble — WebRTC or Call Me */
+  const activeBubble = isCallMeActive || isCallMeEnded
+    ? [...(callMeState?.messages || [])].reverse().find((m) => m.role === "user" || (m.role === "bot" && m.text))
+    : [...session.messages].reverse().find((m) => m.role === "user" || (m.role === "bot" && m.text));
+
+  /* Messages for transcript panel */
+  const transcriptMessages = isCallMeActive || isCallMeEnded
+    ? callMeState?.messages || []
+    : session.messages;
+
+  /* Duration for transcript header */
+  const transcriptDuration = isCallMeActive || isCallMeEnded
+    ? callMeState?.duration || 0
+    : session.duration;
+
+  const showBubble = (isAnythingActive || isCallMeEnded) && activeBubble && !panelOpen;
+  const showTranscriptBtn = (isAnythingActive || isCallMeEnded) && transcriptMessages.length > 0;
 
   const widget = (
     <div
@@ -310,17 +331,17 @@ export function VoiceWidget({
       <div className="vw-label">{statusLabel}</div>
 
       {/* Single active bubble */}
-      {isActive && activeBubble && !panelOpen && (
+      {showBubble && (
         <div
-          className={`vw-bubble ${activeBubble.role === "user" ? "vw-bubble--user" : "vw-bubble--bot"} ${activeBubble.isInterim ? "vw-interim" : ""} ${activeBubble.speaking ? "vw-speaking" : ""} ${activeBubble.interrupted ? "vw-interrupted" : ""}`}
-          key={activeBubble.id}
+          className={`vw-bubble ${activeBubble!.role === "user" ? "vw-bubble--user" : "vw-bubble--bot"} ${activeBubble!.isInterim ? "vw-interim" : ""} ${activeBubble!.speaking ? "vw-speaking" : ""} ${activeBubble!.interrupted ? "vw-interrupted" : ""}`}
+          key={activeBubble!.id}
         >
-          {activeBubble.text || <Dots />}
+          {activeBubble!.text || <Dots />}
         </div>
       )}
 
       {/* Transcript toggle button */}
-      {isActive && session.messages.length > 0 && (
+      {showTranscriptBtn && (
         <button
           className="vw-tp-btn"
           onClick={() => setPanelOpen((p) => !p)}
@@ -335,7 +356,7 @@ export function VoiceWidget({
         <div className="vw-tp">
           <div className="vw-tp-head">
             <div className="vw-tp-title">
-              Transcript · {fmt(session.duration)}
+              {isCallMeActive || isCallMeEnded ? "📞 " : ""}Transcript · {fmt(transcriptDuration)}
             </div>
             <button
               className="vw-tp-close"
@@ -345,15 +366,15 @@ export function VoiceWidget({
             </button>
           </div>
           <div className="vw-tp-body" ref={scrollRef}>
-            {session.messages.length === 0 ? (
+            {transcriptMessages.length === 0 ? (
               <div className="vw-tp-empty">Waiting for conversation…</div>
             ) : (
-              session.messages.map((msg) => (
+              transcriptMessages.map((msg) => (
                 <TranscriptMsg key={msg.id} msg={msg} />
               ))
             )}
             {/* Tool UI components — rendered inline after messages (simple mode) */}
-            {tools &&
+            {tools && !isCallMeActive && !isCallMeEnded &&
               session.toolCalls
                 .filter((tc) => tc.result !== undefined && tools[tc.name])
                 .map((tc) => (
@@ -380,8 +401,16 @@ export function VoiceWidget({
         className={`vw-orb ${orbState}`}
         role="button"
         tabIndex={0}
-        aria-label={isActive ? "End call" : idleLabel}
-        onClick={handleClick}
+        aria-label={isAnythingActive ? "End call" : idleLabel}
+        onClick={() => {
+          if (isCallMeEnded) {
+            // Clear Call Me state, go back to idle
+            setCallMeState(null);
+            setPanelOpen(false);
+          } else if (!isCallMeActive) {
+            handleClick();
+          }
+        }}
         onKeyDown={(e) => e.key === "Enter" && handleClick()}
       />
     </div>
@@ -404,6 +433,7 @@ export function VoiceWidget({
         server={server}
         chat={chat}
         tokenProvider={tokenProvider}
+        onCallMeState={setCallMeState}
       />
       {children}
     </VoiceContext.Provider>
