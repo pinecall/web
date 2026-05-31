@@ -12,18 +12,54 @@ npm install @pinecall/voice-widget
 import { VoiceWidget } from "@pinecall/voice-widget";
 
 function App() {
-  return <VoiceWidget agent="mara" />;
+  return <VoiceWidget agent="mara" name="Mara" />;
 }
+```
+
+## Multi-channel
+
+```tsx
+<VoiceWidget
+  agent="florencia"
+  name="Florencia"
+  avatar="🌸"
+  locale="es"
+  channels={[
+    { type: "webrtc" },
+    { type: "chat" },
+    { type: "whatsapp", phone: "+51987654321" },
+    { type: "phone", numbers: ["+13186330963"] },
+  ]}
+  callMeEndpoint="/api/call-me"
+  chat={{
+    greeting: "¡Hola! Soy Florencia. ¿En qué puedo ayudarte?",
+    quickOptions: [
+      { label: "💇 Servicios", query: "¿Qué servicios ofrecen?" },
+    ],
+    tokenProvider: async () => {
+      const res = await fetch("/api/chat-token");
+      return res.json();
+    },
+  }}
+  tokenProvider={async () => {
+    const res = await fetch("/api/token");
+    return res.json();
+  }}
+/>
 ```
 
 ## What it does
 
-- Animated orb UI with multiple display modes (`orb`, `pill`, `panel`, `inline`)
-- Full theming via CSS custom properties
-- Tool call tracking (`trackedTools` + `useVoice()`)
-- Context injection from React state (`setContext`)
-- Token-based auth (`tokenProvider`)
-- Status indicators, transcript display, error states
+- **ContactHub popover** — voice, chat, WhatsApp, Call Me in one widget
+- **Embedded LLM chat** — streaming markdown, quick replies, fullscreen on mobile
+- **Animated orb UI** with breathing rings and per-phase colors
+- **5 theme presets** (`dark`, `midnight`, `aurora`, `sunset`, `light`) + full CSS overrides
+- **Multi-language pills** with hot-swap mid-call
+- **Tool call tracking** (`tools` prop or `trackedTools` + `useVoice()`)
+- **Context injection** from React state (`setContext`)
+- **Token-based auth** (`tokenProvider`) — API keys stay server-side
+- **Localization** — built-in strings for `en`, `es`, `de`, `pt`
+- **Mobile optimized** — fullscreen chat, no iOS zoom on input focus
 
 ## Documentation
 

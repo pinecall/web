@@ -1,6 +1,6 @@
 {
   "name": "@pinecall/chat-core",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Framework-agnostic text chat client for Pinecall agents",
   "license": "MIT",
   "type": "module",

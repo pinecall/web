@@ -3,7 +3,7 @@
  */
 
 /** Chat session connection status. */
-export type ChatStatus = "idle" | "connecting" | "connected" | "error";
+export type ChatStatus = "idle" | "connecting" | "connected" | "error" | "destroyed";
 
 /** A single message in the conversation. */
 export interface ChatMessage {
