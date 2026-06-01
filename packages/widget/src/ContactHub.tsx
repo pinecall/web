@@ -46,22 +46,6 @@ const IconX = ({ size = 16 }: { size?: number }) => (
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-function formatPhone(p: string): string {
-  const digits = p.replace(/\D/g, "");
-  if (digits.length >= 9) {
-    const last9 = digits.slice(-9);
-    return `${last9.slice(0, 3)} ${last9.slice(3, 6)} ${last9.slice(6)}`;
-  }
-  return p;
-}
-
-function formatDuration(raw: number): string {
-  const s = Math.round(raw);
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
-}
-
 function findLastIndex<T>(arr: T[], fn: (item: T) => boolean): number {
   for (let i = arr.length - 1; i >= 0; i--) {
     if (fn(arr[i])) return i;
@@ -93,19 +77,26 @@ interface ContactHubProps {
   onCallMeState?: (state: CallMeState | null) => void;
 }
 
-// TranscriptMsg removed — we now use TranscriptMessage from voice-core
-
 // ── ContactHub Component ──────────────────────────────────────────
 
 export function ContactHub({
   open, onClose, channels, name, locale, labels, avatar, callMeEndpoint,
   agent, server, chat, tokenProvider, onCallMeState,
 }: ContactHubProps) {
-  const [view, setView] = useState<"menu" | "call" | "transcript" | "chat">("menu");
+  const [view, setView] = useState<"menu" | "call" | "chat">("menu");
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<"idle" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const { connect } = useVoice();
+
+  // ── SSE refs — persist across hub open/close ──
+  const sseAbortRef = useRef<AbortController | null>(null);
+  const sseMessagesRef = useRef<TranscriptMessage[]>([]);
+  const sseIdCounter = useRef(0);
+  const sseDurationRef = useRef(0);
+  const sseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sseStartTimeRef = useRef<number | null>(null);
+  const ssePhoneRef = useRef("");
 
   // Reset on close
   useEffect(() => {
@@ -120,6 +111,14 @@ export function ContactHub({
     }
   }, [open]);
 
+  // Cleanup SSE on unmount
+  useEffect(() => {
+    return () => {
+      sseAbortRef.current?.abort();
+      if (sseTimerRef.current) clearInterval(sseTimerRef.current);
+    };
+  }, []);
+
   const hasWebrtc = channels.some((c) => c.type === "webrtc");
   const hasChat = channels.some((c) => c.type === "chat") && !!chat;
   const waChannel = channels.find((c) => c.type === "whatsapp" && c.phone);
@@ -131,26 +130,6 @@ export function ContactHub({
     await connect();
   };
 
-  const handleStartCall = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phone.trim()) return;
-    // Start the SSE call — close hub, CallMeSSE manages state via onCallMeState
-    setView("transcript");
-  };
-
-  const handleTranscriptError = (err: string) => {
-    setView("call");
-    setErrorMsg(err || t(locale, "callMe.error", labels));
-    setStatus("error");
-  };
-
-  const handleCallMeConnected = () => {
-    // Once call connects, close the hub — VoiceWidget will render the transcript
-    onClose();
-  };
-
-  if (!open) return null;
-
   const l = (key: keyof LocaleStrings) => t(locale, key, labels, { name });
 
   const handleVoiceFromChat = async () => {
@@ -158,10 +137,188 @@ export function ContactHub({
     await connect();
   };
 
+  // ── SSE emit helper ──
+  const emitSSEState = (status: CallMeState["status"]) => {
+    onCallMeState?.({
+      status,
+      messages: [...sseMessagesRef.current],
+      duration: sseDurationRef.current,
+      phone: ssePhoneRef.current,
+    });
+  };
+
+  // ── SSE event handler ──
+  const handleSSEEvent = (event: string, data: any) => {
+    switch (event) {
+      case "call.started": {
+        sseStartTimeRef.current = Date.now();
+        sseTimerRef.current = setInterval(() => {
+          sseDurationRef.current = Math.floor((Date.now() - sseStartTimeRef.current!) / 1000);
+          emitSSEState("connected");
+        }, 1000);
+        emitSSEState("connected");
+        break;
+      }
+      case "bot.word": {
+        const mid = data.messageId;
+        const msgs = sseMessagesRef.current;
+        const idx = msgs.findIndex((m) => m.role === "bot" && m.messageId === mid);
+        if (idx >= 0) {
+          msgs[idx] = { ...msgs[idx], text: data.text, speaking: true };
+        } else {
+          msgs.push({ id: ++sseIdCounter.current, role: "bot", messageId: mid, text: data.text, speaking: true });
+        }
+        sseMessagesRef.current = [...msgs];
+        emitSSEState("connected");
+        break;
+      }
+      case "bot.confirmed": {
+        const mid = data.messageId;
+        const msgs = sseMessagesRef.current;
+        const idx = msgs.findIndex((m) => m.role === "bot" && m.messageId === mid);
+        if (idx >= 0) {
+          msgs[idx] = { ...msgs[idx], text: data.text, speaking: false };
+        } else {
+          msgs.push({ id: ++sseIdCounter.current, role: "bot", messageId: mid, text: data.text, speaking: false });
+        }
+        sseMessagesRef.current = [...msgs];
+        emitSSEState("connected");
+        break;
+      }
+      case "user.speaking": {
+        if (!data.text) break;
+        const msgs = sseMessagesRef.current;
+        const lastUserIdx = findLastIndex(msgs, (m) => m.role === "user");
+        const hasBotAfter = lastUserIdx >= 0 && msgs.slice(lastUserIdx + 1).some((m) => m.role === "bot");
+        if (lastUserIdx >= 0 && !hasBotAfter) {
+          msgs[lastUserIdx] = { ...msgs[lastUserIdx], text: data.text, isInterim: true };
+        } else {
+          msgs.push({ id: ++sseIdCounter.current, role: "user", text: data.text, isInterim: true });
+        }
+        sseMessagesRef.current = [...msgs];
+        emitSSEState("connected");
+        break;
+      }
+      case "user.message": {
+        if (!data.text) break;
+        const msgs = sseMessagesRef.current;
+        const idx = findLastIndex(msgs, (m) => m.role === "user" && !!m.isInterim);
+        if (idx >= 0) {
+          msgs[idx] = { ...msgs[idx], text: data.text, isInterim: false };
+        } else {
+          msgs.push({ id: ++sseIdCounter.current, role: "user", text: data.text, isInterim: false });
+        }
+        sseMessagesRef.current = [...msgs];
+        emitSSEState("connected");
+        break;
+      }
+      case "call.ended": {
+        sseDurationRef.current = data.duration || sseDurationRef.current;
+        if (sseTimerRef.current) clearInterval(sseTimerRef.current);
+        onCallMeState?.({
+          status: "ended",
+          messages: [...sseMessagesRef.current],
+          duration: sseDurationRef.current,
+          phone: ssePhoneRef.current,
+        });
+        break;
+      }
+      case "error": {
+        if (sseTimerRef.current) clearInterval(sseTimerRef.current);
+        onCallMeState?.({
+          status: "error",
+          messages: [],
+          duration: 0,
+          phone: ssePhoneRef.current,
+          error: data.message,
+        });
+        break;
+      }
+    }
+  };
+
+  // ── Start Call Me — triggered by FORM SUBMIT, not useEffect ──
+  const startCallMe = async (phoneNum: string) => {
+    // Reset SSE state
+    sseMessagesRef.current = [];
+    sseIdCounter.current = 0;
+    sseDurationRef.current = 0;
+    sseStartTimeRef.current = null;
+    ssePhoneRef.current = phoneNum;
+
+    const controller = new AbortController();
+    sseAbortRef.current = controller;
+
+    // Emit dialing state immediately
+    onCallMeState?.({ status: "dialing", messages: [], duration: 0, phone: phoneNum });
+
+    let res: Response;
+    try {
+      res = await fetch(callMeEndpoint!, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phoneNum }),
+        signal: controller.signal,
+      });
+    } catch (err: any) {
+      if (err.name === "AbortError") return;
+      onCallMeState?.({ status: "error", messages: [], duration: 0, phone: phoneNum, error: l("callMe.error") });
+      return;
+    }
+
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      const data = await res.json().catch(() => ({}));
+      onCallMeState?.({ status: "error", messages: [], duration: 0, phone: phoneNum, error: data.error || l("callMe.error") });
+      return;
+    }
+
+    // Parse SSE stream
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop()!;
+        let currentEvent = "";
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            currentEvent = line.slice(7).trim();
+          } else if (line.startsWith("data: ") && currentEvent) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              handleSSEEvent(currentEvent, data);
+            } catch { /* skip malformed */ }
+            currentEvent = "";
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err.name !== "AbortError") {
+        console.error("[ContactHub] Stream error:", err);
+      }
+    }
+  };
+
+  const handleStartCall = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phone.trim()) return;
+    // Close hub, start SSE — triggered by click, NOT useEffect
+    onClose();
+    startCallMe(phone.trim());
+  };
+
+  if (!open) return null;
+
   return (
-    <div className="vw-hub-backdrop" onClick={(e) => { if (e.target === e.currentTarget && view !== "transcript" && view !== "chat") onClose(); }}>
+    <div className="vw-hub-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={`vw-hub-panel${view === "chat" ? " vw-hub-panel--chat" : ""}`}>
-        {view !== "transcript" && view !== "chat" && (
+        {view !== "chat" && (
           <button className="vw-hub-close" onClick={onClose}><IconX /></button>
         )}
 
@@ -264,246 +421,8 @@ export function ContactHub({
             onBack={() => setView("menu")}
             onVoiceCall={handleVoiceFromChat}
           />
-        ) : (
-          <CallMeSSE
-            phone={phone.trim()}
-            endpoint={callMeEndpoint!}
-            name={name}
-            locale={locale}
-            labels={labels}
-            onClose={onClose}
-            onError={handleTranscriptError}
-            onCallMeState={onCallMeState}
-            onConnected={handleCallMeConnected}
-          />
-        )}
+        ) : null}
       </div>
     </div>
   );
 }
-
-// ── CallMeSSE — SSE parser that emits state to VoiceWidget ────────
-
-interface CallMeSSEProps {
-  phone: string;
-  endpoint: string;
-  name: string;
-  locale: string;
-  labels?: Partial<LocaleStrings>;
-  onClose: () => void;
-  onError: (err: string) => void;
-  onCallMeState?: (state: CallMeState | null) => void;
-  onConnected?: () => void;
-}
-
-function CallMeSSE({ phone, endpoint, name, locale, labels, onClose, onError, onCallMeState, onConnected }: CallMeSSEProps) {
-  const [localStatus, setLocalStatus] = useState<"dialing" | "connected" | "error">("dialing");
-  const [errorMsg, setErrorMsg] = useState("");
-  const abortRef = useRef<AbortController | null>(null);
-  const idCounter = useRef(0);
-  const messagesRef = useRef<TranscriptMessage[]>([]);
-  const startTimeRef = useRef<number | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const durationRef = useRef(0);
-
-  const l = (key: keyof LocaleStrings) => t(locale, key, labels, { name });
-
-  // Emit current state to parent
-  const emitState = useCallback((status: CallMeState["status"]) => {
-    onCallMeState?.({
-      status,
-      messages: [...messagesRef.current],
-      duration: durationRef.current,
-      phone,
-    });
-  }, [onCallMeState, phone]);
-
-  const handleSSE = useCallback((event: string, data: any) => {
-    switch (event) {
-      case "call.started": {
-        setLocalStatus("connected");
-        startTimeRef.current = Date.now();
-        // Start duration timer
-        timerRef.current = setInterval(() => {
-          durationRef.current = Math.floor((Date.now() - startTimeRef.current!) / 1000);
-          emitState("connected");
-        }, 1000);
-        emitState("connected");
-        onConnected?.();
-        break;
-      }
-      case "bot.word": {
-        const mid = data.messageId;
-        const msgs = messagesRef.current;
-        const idx = msgs.findIndex((m) => m.role === "bot" && m.messageId === mid);
-        if (idx >= 0) {
-          msgs[idx] = { ...msgs[idx], text: data.text, speaking: true };
-        } else {
-          msgs.push({ id: ++idCounter.current, role: "bot", messageId: mid, text: data.text, speaking: true });
-        }
-        messagesRef.current = [...msgs];
-        emitState("connected");
-        break;
-      }
-      case "bot.confirmed": {
-        const mid = data.messageId;
-        const msgs = messagesRef.current;
-        const idx = msgs.findIndex((m) => m.role === "bot" && m.messageId === mid);
-        if (idx >= 0) {
-          msgs[idx] = { ...msgs[idx], text: data.text, speaking: false };
-        } else {
-          msgs.push({ id: ++idCounter.current, role: "bot", messageId: mid, text: data.text, speaking: false });
-        }
-        messagesRef.current = [...msgs];
-        emitState("connected");
-        break;
-      }
-      case "user.speaking": {
-        if (!data.text) break;
-        const msgs = messagesRef.current;
-        const lastUserIdx = findLastIndex(msgs, (m) => m.role === "user");
-        const hasBotAfter = lastUserIdx >= 0 && msgs.slice(lastUserIdx + 1).some((m) => m.role === "bot");
-        if (lastUserIdx >= 0 && !hasBotAfter) {
-          msgs[lastUserIdx] = { ...msgs[lastUserIdx], text: data.text, isInterim: true };
-        } else {
-          msgs.push({ id: ++idCounter.current, role: "user", text: data.text, isInterim: true });
-        }
-        messagesRef.current = [...msgs];
-        emitState("connected");
-        break;
-      }
-      case "user.message": {
-        if (!data.text) break;
-        const msgs = messagesRef.current;
-        const idx = findLastIndex(msgs, (m) => m.role === "user" && !!m.isInterim);
-        if (idx >= 0) {
-          msgs[idx] = { ...msgs[idx], text: data.text, isInterim: false };
-        } else {
-          msgs.push({ id: ++idCounter.current, role: "user", text: data.text, isInterim: false });
-        }
-        messagesRef.current = [...msgs];
-        emitState("connected");
-        break;
-      }
-      case "call.ended": {
-        durationRef.current = data.duration || durationRef.current;
-        if (timerRef.current) clearInterval(timerRef.current);
-        onCallMeState?.({
-          status: "ended",
-          messages: [...messagesRef.current],
-          duration: durationRef.current,
-          phone,
-        });
-        break;
-      }
-      case "error": {
-        setErrorMsg(data.message || l("callMe.error"));
-        setLocalStatus("error");
-        onCallMeState?.({
-          status: "error",
-          messages: [],
-          duration: 0,
-          phone,
-          error: data.message,
-        });
-        break;
-      }
-    }
-  }, [emitState, onCallMeState, onConnected, phone, locale, labels, name]);
-
-  // SSE stream
-  useEffect(() => {
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    // Emit dialing state immediately
-    onCallMeState?.({ status: "dialing", messages: [], duration: 0, phone });
-
-    (async () => {
-      let res: Response;
-      try {
-        res = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone }),
-          signal: controller.signal,
-        });
-      } catch (err: any) {
-        if (err.name === "AbortError") return;
-        setErrorMsg(l("callMe.error"));
-        setLocalStatus("error");
-        onError(l("callMe.error"));
-        return;
-      }
-
-      const ct = res.headers.get("content-type") || "";
-      if (ct.includes("application/json")) {
-        const data = await res.json().catch(() => ({}));
-        setErrorMsg(data.error || l("callMe.error"));
-        setLocalStatus("error");
-        onError(data.error);
-        return;
-      }
-
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop()!;
-          let currentEvent = "";
-          for (const line of lines) {
-            if (line.startsWith("event: ")) {
-              currentEvent = line.slice(7).trim();
-            } else if (line.startsWith("data: ") && currentEvent) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                handleSSE(currentEvent, data);
-              } catch { /* skip malformed */ }
-              currentEvent = "";
-            }
-          }
-        }
-      } catch (err: any) {
-        if (err.name !== "AbortError") {
-          console.error("[ContactHub] Stream error:", err);
-        }
-      }
-    })();
-
-    return () => {
-      controller.abort();
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [phone, endpoint]);
-
-  // Render minimal UI inside the hub — just dialing or error state
-  // Once connected, the hub closes and VoiceWidget renders the transcript
-
-  if (localStatus === "error") {
-    return (
-      <div className="vw-cm">
-        <div className="vw-cm-error-view">
-          <div className="vw-cm-error-text">{errorMsg}</div>
-          <button className="vw-hub-close" onClick={onClose}>{l("callMe.back")}</button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="vw-cm">
-      <div className="vw-cm-dialing">
-        <div className="vw-cm-dialing-ring"><IconPhone size={22} /></div>
-        <div className="vw-cm-dialing-text">{l("callMe.calling")}</div>
-        <div className="vw-cm-dialing-phone">{formatPhone(phone)}</div>
-      </div>
-    </div>
-  );
-}
-

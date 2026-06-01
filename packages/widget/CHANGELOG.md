@@ -1,5 +1,12 @@
 # @pinecall/voice-widget
 
+## 0.2.11 — 2026-06-01
+
+### Fixed
+
+- ContactHub "Call Me" SSE: moved dial trigger from useEffect to callback to prevent React StrictMode double-dial.
+- Call Me floating bubbles: word-by-word transcript display with pulse ring animations.
+
 ## 0.2.6
 
 ### Changed
