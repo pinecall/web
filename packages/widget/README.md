@@ -16,31 +16,14 @@ function App() {
 }
 ```
 
-## Multi-channel
+Click the orb → voice call starts. Click again → call ends.
+
+## With token security
 
 ```tsx
 <VoiceWidget
   agent="florencia"
   name="Florencia"
-  avatar="🌸"
-  locale="es"
-  channels={[
-    { type: "webrtc" },
-    { type: "chat" },
-    { type: "whatsapp", phone: "+51987654321" },
-    { type: "phone", numbers: ["+13186330963"] },
-  ]}
-  callMeEndpoint="/api/call-me"
-  chat={{
-    greeting: "¡Hola! Soy Florencia. ¿En qué puedo ayudarte?",
-    quickOptions: [
-      { label: "💇 Servicios", query: "¿Qué servicios ofrecen?" },
-    ],
-    tokenProvider: async () => {
-      const res = await fetch("/api/chat-token");
-      return res.json();
-    },
-  }}
   tokenProvider={async () => {
     const res = await fetch("/api/token");
     return res.json();
@@ -50,16 +33,21 @@ function App() {
 
 ## What it does
 
-- **ContactHub popover** — voice, chat, WhatsApp, Call Me in one widget
-- **Embedded LLM chat** — streaming markdown, quick replies, fullscreen on mobile
 - **Animated orb UI** with breathing rings and per-phase colors
+- **Live transcript** rendered as chat bubbles
 - **5 theme presets** (`dark`, `midnight`, `aurora`, `sunset`, `light`) + full CSS overrides
 - **Multi-language pills** with hot-swap mid-call
 - **Tool call tracking** (`tools` prop or `trackedTools` + `useVoice()`)
 - **Context injection** from React state (`setContext`)
 - **Token-based auth** (`tokenProvider`) — API keys stay server-side
-- **Localization** — built-in strings for `en`, `es`, `de`, `pt`
-- **Mobile optimized** — fullscreen chat, no iOS zoom on input focus
+
+## Standalone exports
+
+For building custom multi-channel experiences:
+
+- `ContactHub` — multi-channel contact menu (voice, chat, WhatsApp, Call Me)
+- `ChatView` — embedded LLM text chat with streaming markdown
+- `useVoiceSession()` — headless hook for fully custom UIs
 
 ## Documentation
 

@@ -1,5 +1,29 @@
 # @pinecall/voice-widget
 
+## 0.3.0 — 2026-06-05
+
+### ⚠️ Breaking Changes
+
+- **VoiceWidget is now voice-only.** Removed the following props:
+  - `channels` — no longer drives a built-in ContactHub menu
+  - `callMeEndpoint` — Call Me flow removed from widget
+  - `chat` — LLM text chat removed from widget
+  - `onIdleClick` — orb always connects/disconnects directly
+  - `locale` / `labels` — hub i18n strings no longer needed
+  - `avatar` — hub header avatar removed
+- Clicking the orb now **always** starts/stops a WebRTC voice session. No more multi-channel menu.
+- Removed `blossom:open-chat` event listener.
+
+### Added
+
+- `ContactHub` is now a **standalone export** — use it to build your own multi-channel UI outside VoiceWidget. Requires explicit `connect` prop instead of `useVoice()`.
+- `ChatView` is now exported for standalone use.
+
+### Migration
+
+If you were using `channels`, `callMeEndpoint`, or `chat` props, remove them from `<VoiceWidget>`. If you need multi-channel UI, import and compose `ContactHub` or `ChatView` separately.
+
+
 ## 0.2.11 — 2026-06-01
 
 ### Fixed
