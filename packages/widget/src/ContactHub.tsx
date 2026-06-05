@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useVoice } from "./index.js";
 import { t } from "./locales.js";
+import { HUB_CSS } from "./hub-styles.js";
+import { CHAT_VIEW_CSS } from "./hub-chat-styles.js";
 import { ChatView } from "./ChatView.js";
 import type { TranscriptMessage } from "@pinecall/voice-core";
 import type { AgentChannel, LocaleStrings, ChatConfig } from "./types.js";
@@ -73,21 +74,31 @@ interface ContactHubProps {
   server?: string;
   chat?: ChatConfig;
   tokenProvider?: () => Promise<{ token: string; server: string; expires_in?: number }>;
-  /** Called when Call Me state changes — VoiceWidget renders the UI */
+  /** Called when Call Me state changes */
   onCallMeState?: (state: CallMeState | null) => void;
+  /** Connect to WebRTC voice session. Passed explicitly instead of using useVoice(). */
+  connect: () => Promise<void>;
 }
 
 // ── ContactHub Component ──────────────────────────────────────────
 
 export function ContactHub({
   open, onClose, channels, name, locale, labels, avatar, callMeEndpoint,
-  agent, server, chat, tokenProvider, onCallMeState,
+  agent, server, chat, tokenProvider, onCallMeState, connect,
 }: ContactHubProps) {
   const [view, setView] = useState<"menu" | "call" | "chat">("menu");
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<"idle" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const { connect } = useVoice();
+
+  /* Inject hub + chat CSS once */
+  useEffect(() => {
+    if (document.getElementById("vw-hub-styles")) return;
+    const el = document.createElement("style");
+    el.id = "vw-hub-styles";
+    el.textContent = HUB_CSS + CHAT_VIEW_CSS;
+    document.head.appendChild(el);
+  }, []);
 
   // ── SSE refs — persist across hub open/close ──
   const sseAbortRef = useRef<AbortController | null>(null);

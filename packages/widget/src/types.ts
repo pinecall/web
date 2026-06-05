@@ -232,17 +232,6 @@ export interface VoiceWidgetProps {
    */
   trackedTools?: string[];
   /**
-   * Intercept idle orb clicks. When set, clicking the idle orb calls
-   * this instead of auto-connecting. Use this to show a custom menu
-   * (e.g. voice / WhatsApp / call-me) before starting the call.
-   * Call `useVoice().connect()` from a child component to start manually.
-   *
-   * Note: If the widget auto-discovers multiple channels, it shows the
-   * built-in ContactHub popover instead. `onIdleClick` takes precedence
-   * over the auto-discovery behavior.
-   */
-  onIdleClick?: () => void;
-  /**
    * Custom token provider — call your backend to generate tokens instead
    * of hitting /webrtc/token directly. Keeps API keys server-side.
    *
@@ -258,76 +247,6 @@ export interface VoiceWidgetProps {
    * ```
    */
   tokenProvider?: () => Promise<{ token: string; server: string; expires_in?: number }>;
-  /**
-   * Locale for built-in strings (ContactHub popover, status labels).
-   * Default: `"en"`
-   */
-  locale?: "en" | "es" | "de" | "pt";
-  /**
-   * Override individual locale strings. Merged on top of the locale preset.
-   *
-   * @example
-   * ```tsx
-   * <VoiceWidget locale="es" labels={{ "callMe.formNote": "Llámanos..." }} />
-   * ```
-   */
-  labels?: Partial<LocaleStrings>;
-  /**
-   * Avatar emoji or short text displayed in the ContactHub header.
-   * @example "🌸"
-   */
-  avatar?: string;
-  /**
-   * Endpoint URL for "Call Me" outbound calls.
-   * When set AND the agent has phone channels, a "Call Me" option
-   * appears in the ContactHub popover.
-   *
-   * The widget POSTs `{ phone }` to this endpoint and expects an SSE stream
-   * with `event: transcript` data.
-   *
-   * @example "/api/call-me"
-   */
-  callMeEndpoint?: string;
-  /**
-   * Explicit channel list for the ContactHub popover.
-   * When provided with ≥2 channels (or 1 + callMeEndpoint, or any whatsapp),
-   * clicking the idle orb shows a contact menu instead of connecting directly.
-   *
-   * @example
-   * ```tsx
-   * <VoiceWidget
-   *   agent="florencia"
-   *   channels={[
-   *     { type: "webrtc" },
-   *     { type: "chat" },
-   *     { type: "whatsapp", phone: "+51987654321" },
-   *     { type: "phone", numbers: ["+13186330963"] },
-   *   ]}
-   *   callMeEndpoint="/api/call-me"
-   * />
-   * ```
-   */
-  channels?: AgentChannel[];
-  /**
-   * Chat configuration for the built-in LLM chat view.
-   * When provided AND channels includes `{ type: "chat" }`, the ContactHub
-   * shows a "Chat" option that opens an embedded text chat.
-   *
-   * @example
-   * ```tsx
-   * <VoiceWidget
-   *   agent="florencia"
-   *   channels={[{ type: "webrtc" }, { type: "chat" }]}
-   *   chat={{
-   *     greeting: "¡Hola! Soy Florencia...",
-   *     quickOptions: [
-   *       { label: "💇 Servicios", query: "¿Qué servicios ofrecen?" },
-   *     ],
-   *   }}
-   * />
-   * ```
-   */
-  chat?: ChatConfig;
 }
 
 // ── Locale strings ────────────────────────────────────────────────

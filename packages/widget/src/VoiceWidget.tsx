@@ -14,11 +14,7 @@ import type { TranscriptMessage, ToolUI, SessionStatus, VoiceSessionState } from
 import type { VoiceWidgetProps, VoiceWidgetTheme } from "./types";
 import { useVoiceSession } from "./useVoiceSession";
 import { WIDGET_CSS } from "./styles";
-import { HUB_CSS } from "./hub-styles";
-import { CHAT_VIEW_CSS } from "./hub-chat-styles";
 import { PRESETS } from "./presets";
-import { ContactHub } from "./ContactHub";
-import type { CallMeState } from "./ContactHub";
 
 // ── Voice Context — lets consumers render tool UI anywhere ──────────
 
@@ -104,13 +100,6 @@ export function VoiceWidget({
   defaultLanguage,
   onLanguageChange,
   tokenProvider,
-  onIdleClick,
-  locale = "en",
-  labels: labelOverrides,
-  avatar,
-  callMeEndpoint,
-  channels: channelsProp,
-  chat,
   children,
 }: VoiceWidgetProps & { children?: ReactNode }) {
   const hasLanguages = languages && Object.keys(languages).length >= 2;
@@ -134,13 +123,6 @@ export function VoiceWidget({
     [tools, trackedToolsProp],
   );
 
-  // ── ContactHub — driven by explicit channels prop ──
-  const hubChannels = channelsProp ?? [];
-  const showHub = hubChannels.length >= 2
-    || (hubChannels.length === 1 && !!callMeEndpoint)
-    || hubChannels.some((c) => c.type === "whatsapp");
-  const [hubOpen, setHubOpen] = useState(false);
-
   const session = useVoiceSession({
     server,
     agent,
@@ -150,7 +132,6 @@ export function VoiceWidget({
     tokenProvider,
   });
   const [panelOpen, setPanelOpen] = useState(false);
-  const [callMeState, setCallMeState] = useState<CallMeState | null>(null);
 
   /** Merge preset + custom theme overrides → CSS custom properties */
   const themeStyle = useMemo(() => {
@@ -171,15 +152,8 @@ export function VoiceWidget({
     if (document.getElementById("vw-styles")) return;
     const el = document.createElement("style");
     el.id = "vw-styles";
-    el.textContent = WIDGET_CSS + HUB_CSS + CHAT_VIEW_CSS;
+    el.textContent = WIDGET_CSS;
     document.head.appendChild(el);
-  }, []);
-
-  /* Listen for external "open chat" events (e.g. Navbar "Reservar" button) */
-  useEffect(() => {
-    const handler = () => setHubOpen(true);
-    window.addEventListener("blossom:open-chat", handler);
-    return () => window.removeEventListener("blossom:open-chat", handler);
   }, []);
 
   useEffect(() => {
@@ -231,72 +205,47 @@ export function VoiceWidget({
     [selectedLang, languages, session, userConfig, onLanguageChange],
   );
 
+  // ── Orb click — always connect/disconnect ──
   const handleClick = useCallback(async () => {
     if (session.status === "connected") {
       session.disconnect();
       setPanelOpen(false);
     } else if (session.status === "idle" || session.status === "error") {
-      // Priority: onIdleClick > ContactHub > direct connect
-      if (onIdleClick && session.status === "idle") {
-        onIdleClick();
-        return;
-      }
-      if (showHub && session.status === "idle" && !onIdleClick) {
-        setHubOpen(true);
-        return;
-      }
       await session.connect();
     }
-  }, [session, onIdleClick, showHub]);
+  }, [session]);
 
   const isActive = session.status === "connected";
-  const isCallMeActive = callMeState != null && (callMeState.status === "connected" || callMeState.status === "dialing");
-  const isCallMeEnded = callMeState?.status === "ended";
-  const isAnythingActive = isActive || isCallMeActive;
   const idleLabel = label || `Talk to ${name}`;
 
-  const orbState = isCallMeActive
-    ? "active"
-    : session.agentSpeaking
-      ? "speaking"
-      : session.userSpeaking
-        ? "user-speaking"
-        : session.phase === "thinking"
-          ? "thinking"
-          : session.idleWarning != null
-            ? "idle-warning"
-            : isActive
-              ? "active"
-              : session.status === "connecting"
-                ? "connecting"
-                : "";
+  const orbState = session.agentSpeaking
+    ? "speaking"
+    : session.userSpeaking
+      ? "user-speaking"
+      : session.phase === "thinking"
+        ? "thinking"
+        : session.idleWarning != null
+          ? "idle-warning"
+          : isActive
+            ? "active"
+            : session.status === "connecting"
+              ? "connecting"
+              : "";
 
   const statusLabel = (() => {
     if (session.status === "connecting") return "Connecting";
     if (session.status === "error") return session.error || "Connection failed";
-    if (isCallMeActive) return `📞 ${name} · ${fmt(callMeState!.duration)}`;
-    if (isCallMeEnded) return `📞 Call ended · ${fmt(callMeState!.duration)}`;
     if (!isActive) return idleLabel;
     return `${name} · ${fmt(session.duration)}`;
   })();
 
-  /* Active bubble — WebRTC or Call Me */
-  const activeBubble = isCallMeActive || isCallMeEnded
-    ? [...(callMeState?.messages || [])].reverse().find((m) => m.role === "user" || (m.role === "bot" && m.text))
-    : [...session.messages].reverse().find((m) => m.role === "user" || (m.role === "bot" && m.text));
+  /* Active bubble — most recent message */
+  const activeBubble = [...session.messages].reverse().find(
+    (m) => m.role === "user" || (m.role === "bot" && m.text),
+  );
 
-  /* Messages for transcript panel */
-  const transcriptMessages = isCallMeActive || isCallMeEnded
-    ? callMeState?.messages || []
-    : session.messages;
-
-  /* Duration for transcript header */
-  const transcriptDuration = isCallMeActive || isCallMeEnded
-    ? callMeState?.duration || 0
-    : session.duration;
-
-  const showBubble = (isAnythingActive || isCallMeEnded) && activeBubble && !panelOpen;
-  const showTranscriptBtn = (isAnythingActive || isCallMeEnded) && transcriptMessages.length > 0;
+  const showBubble = isActive && activeBubble && !panelOpen;
+  const showTranscriptBtn = isActive && session.messages.length > 0;
 
   const widget = (
     <div
@@ -356,7 +305,7 @@ export function VoiceWidget({
         <div className="vw-tp">
           <div className="vw-tp-head">
             <div className="vw-tp-title">
-              {isCallMeActive || isCallMeEnded ? "📞 " : ""}Transcript · {fmt(transcriptDuration)}
+              Transcript · {fmt(session.duration)}
             </div>
             <button
               className="vw-tp-close"
@@ -366,15 +315,15 @@ export function VoiceWidget({
             </button>
           </div>
           <div className="vw-tp-body" ref={scrollRef}>
-            {transcriptMessages.length === 0 ? (
+            {session.messages.length === 0 ? (
               <div className="vw-tp-empty">Waiting for conversation…</div>
             ) : (
-              transcriptMessages.map((msg) => (
+              session.messages.map((msg) => (
                 <TranscriptMsg key={msg.id} msg={msg} />
               ))
             )}
-            {/* Tool UI components — rendered inline after messages (simple mode) */}
-            {tools && !isCallMeActive && !isCallMeEnded &&
+            {/* Tool UI components — rendered inline after messages */}
+            {tools &&
               session.toolCalls
                 .filter((tc) => tc.result !== undefined && tools[tc.name])
                 .map((tc) => (
@@ -401,40 +350,17 @@ export function VoiceWidget({
         className={`vw-orb ${orbState}`}
         role="button"
         tabIndex={0}
-        aria-label={isAnythingActive ? "End call" : idleLabel}
-        onClick={() => {
-          if (isCallMeEnded) {
-            // Clear Call Me state, go back to idle
-            setCallMeState(null);
-            setPanelOpen(false);
-          } else if (!isCallMeActive) {
-            handleClick();
-          }
-        }}
+        aria-label={isActive ? "End call" : idleLabel}
+        onClick={handleClick}
         onKeyDown={(e) => e.key === "Enter" && handleClick()}
       />
     </div>
   );
 
-  // Always wrap in context provider — ContactHub needs useVoice()
+  // Always wrap in context provider
   return (
     <VoiceContext.Provider value={session}>
       {widget}
-      <ContactHub
-        open={hubOpen}
-        onClose={() => setHubOpen(false)}
-        channels={hubChannels}
-        name={name}
-        locale={locale}
-        labels={labelOverrides}
-        avatar={avatar}
-        callMeEndpoint={callMeEndpoint}
-        agent={agent}
-        server={server}
-        chat={chat}
-        tokenProvider={tokenProvider}
-        onCallMeState={setCallMeState}
-      />
       {children}
     </VoiceContext.Provider>
   );
