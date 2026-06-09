@@ -373,6 +373,10 @@ function TranscriptMsg({ msg }: { msg: TranscriptMessage }) {
   }
 
   const isUser = msg.role === "user";
+
+  // Hide empty bot bubbles once speaking is done (e.g. LLM went straight to tool call)
+  if (!isUser && !msg.text && !msg.speaking) return null;
+
   const cls = [
     "vw-tp-msg",
     isUser ? "vw-tp-msg--user" : "vw-tp-msg--bot",

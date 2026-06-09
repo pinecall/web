@@ -1,5 +1,10 @@
 # @pinecall/voice-widget
 
+## 0.3.2 — 2026-06-09
+
+### Fixed
+- Fixed persistent typing dots when the LLM calls a tool without generating text first. Empty bot bubbles are now hidden once speaking ends.
+
 ## 0.3.1 — 2026-06-09
 
 ### Fixed
