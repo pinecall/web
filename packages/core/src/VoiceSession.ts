@@ -352,21 +352,8 @@ export class VoiceSession extends EventTarget {
       case "bot.speaking":
         if (d.message_id) {
           this.botWords[d.message_id] = [];
-          // Don't add empty bot message if there are pending tool calls
-          // (the tool indicator handles the UI during tool execution)
-          const hasPendingToolCall = this.state.toolCalls.some((t) => t.result === undefined);
-          if (!hasPendingToolCall) {
-            this.setMessages((prev) => [
-              ...prev,
-              {
-                id: Date.now(),
-                role: "bot",
-                text: "",
-                messageId: d.message_id,
-                speaking: true,
-              },
-            ]);
-          }
+          // Don't create empty bot message here — bot.word creates it on first word.
+          // This prevents phantom dots when LLM goes straight to tool calls.
         }
         break;
 
