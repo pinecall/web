@@ -319,6 +319,27 @@ export const WIDGET_CSS = /* css */ `
   50% { transform: translateY(-4px); opacity: 1; }
 }
 
+/* Tool indicator — shown during tool execution */
+.vw-tool-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: rgba(var(--vw-color-thinking), 1);
+}
+.vw-tool-indicator .vw-tool-icon { font-size: 14px; }
+.vw-tool-indicator .vw-tool-name {
+  opacity: .85;
+  font-weight: 500;
+  letter-spacing: .01em;
+}
+.vw-tool-indicator .vw-dots { height: 14px; }
+.vw-tool-indicator .vw-dots span {
+  width: 4px; height: 4px;
+  background: rgba(var(--vw-color-thinking), .6);
+}
+
 /* ══════════════════════════════════════════════════
    TRANSCRIPT PANEL — expandable conversation view
    ══════════════════════════════════════════════════ */

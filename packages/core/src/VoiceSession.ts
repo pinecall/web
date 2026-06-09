@@ -278,11 +278,6 @@ export class VoiceSession extends EventTarget {
       return; // ignore non-JSON
     }
 
-    // DEBUG: log all DC events (remove after debugging)
-    if (d.event && !['audio.metrics', 'speech.started', 'speech.ended'].includes(d.event)) {
-      console.log('[VoiceSession DC]', d.event, d);
-    }
-
     switch (d.event) {
       // ── User speech (STT) ──
       case "speech.started":
@@ -357,16 +352,21 @@ export class VoiceSession extends EventTarget {
       case "bot.speaking":
         if (d.message_id) {
           this.botWords[d.message_id] = [];
-          this.setMessages((prev) => [
-            ...prev,
-            {
-              id: Date.now(),
-              role: "bot",
-              text: "",
-              messageId: d.message_id,
-              speaking: true,
-            },
-          ]);
+          // Don't add empty bot message if there are pending tool calls
+          // (the tool indicator handles the UI during tool execution)
+          const hasPendingToolCall = this.state.toolCalls.some((t) => t.result === undefined);
+          if (!hasPendingToolCall) {
+            this.setMessages((prev) => [
+              ...prev,
+              {
+                id: Date.now(),
+                role: "bot",
+                text: "",
+                messageId: d.message_id,
+                speaking: true,
+              },
+            ]);
+          }
         }
         break;
 
@@ -400,13 +400,18 @@ export class VoiceSession extends EventTarget {
 
       case "bot.finished":
         if (d.message_id) {
-          this.setMessages((prev) =>
-            prev.map((m) =>
+          this.setMessages((prev) => {
+            const msg = prev.find((m) => m.messageId === d.message_id);
+            // Remove empty bot messages entirely (LLM went straight to tool call)
+            if (msg && !msg.text && !d.text) {
+              return prev.filter((m) => m.messageId !== d.message_id);
+            }
+            return prev.map((m) =>
               m.messageId === d.message_id
                 ? { ...m, speaking: false, ...(d.text ? { text: d.text } : {}) }
                 : m,
-            ),
-          );
+            );
+          });
         }
         this.setState({ agentSpeaking: false, phase: "listening" });
         break;
@@ -442,33 +447,22 @@ export class VoiceSession extends EventTarget {
 
       // ── Tool events (server-side LLM) ──
       case "llm.tool_call": {
-        console.log('[VoiceSession] 🔧 llm.tool_call received:', JSON.stringify(d, null, 2));
-        // Always show tool calls as inline system messages in transcript
         if (d.tool_calls?.length) {
-          const toolNames = d.tool_calls.map((tc: any) => tc.name).join(", ");
-          console.log('[VoiceSession] 🔧 Adding system messages for tools:', toolNames);
-          this.setMessages((prev) => {
-            const next = [
-              ...prev,
-              ...d.tool_calls.map((tc: any) => ({
-                id: Date.now() + Math.random(),
-                role: "system" as const,
-                text: `🔧 Using ${tc.name}…`,
-                toolCallId: tc.id,
-              })),
-            ];
-            console.log('[VoiceSession] 🔧 Messages after tool add:', next.length, next.map(m => `${m.role}: ${m.text?.slice(0,40)}`));
-            return next;
-          });
-        } else {
-          console.warn('[VoiceSession] ⚠️ llm.tool_call but no tool_calls array:', d);
-        }
+          // Inline system messages in transcript
+          this.setMessages((prev) => [
+            ...prev,
+            ...d.tool_calls.map((tc: any) => ({
+              id: Date.now() + Math.random(),
+              role: "system" as const,
+              text: `🔧 Using ${tc.name}…`,
+              toolCallId: tc.id,
+            })),
+          ]);
 
-        // Also track in toolCalls state if trackedTools is configured
-        const tracked = this.opts.trackedTools;
-        if (tracked && d.tool_calls?.length) {
+          // Always track in toolCalls state (for ThinkingIndicator + trackedTools UI)
+          const tracked = this.opts.trackedTools;
           const newEntries: ToolUI[] = d.tool_calls
-            .filter((tc: any) => tracked.includes(tc.name))
+            .filter((tc: any) => !tracked || tracked.includes(tc.name))
             .map((tc: any) => {
               let args: Record<string, unknown> = {};
               try {
@@ -497,11 +491,15 @@ export class VoiceSession extends EventTarget {
 
       case "llm.tool_result": {
         if (d.tool_call_id) {
-          // Update inline transcript message
+          // Recover tool name from the system message we added on llm.tool_call
+          const sysMsg = this.state.messages.find(
+            (m) => m.toolCallId === d.tool_call_id,
+          );
+          const toolName = (d.name || sysMsg?.text?.match(/Using (\S+)/)?.[1] || "Tool").replace(/…$/, "");
           this.setMessages((prev) =>
             prev.map((m) =>
               m.toolCallId === d.tool_call_id
-                ? { ...m, text: `✓ ${d.name || "Tool"} done` }
+                ? { ...m, text: `✓ ${toolName}` }
                 : m,
             ),
           );

@@ -83,6 +83,21 @@ function Dots() {
   );
 }
 
+/** Tool-aware thinking indicator — shows tool name when a tool is pending */
+function ThinkingIndicator({ toolCalls }: { toolCalls: ToolUI[] }) {
+  const pending = toolCalls.find((tc) => tc.result === undefined);
+  if (pending) {
+    return (
+      <span className="vw-tool-indicator">
+        <span className="vw-tool-icon">🔧</span>{" "}
+        <span className="vw-tool-name">{pending.name}</span>
+        <Dots />
+      </span>
+    );
+  }
+  return <Dots />;
+}
+
 export function VoiceWidget({
   agent,
   server,
@@ -239,9 +254,10 @@ export function VoiceWidget({
     return `${name} · ${fmt(session.duration)}`;
   })();
 
-  /* Active bubble — most recent message */
+  /* Active bubble — most recent message (or empty bot msg during tool calls) */
+  const hasPendingTools = session.toolCalls.some((tc) => tc.result === undefined);
   const activeBubble = [...session.messages].reverse().find(
-    (m) => m.role === "user" || (m.role === "bot" && m.text),
+    (m) => m.role === "user" || (m.role === "bot" && (m.text || hasPendingTools)),
   );
 
   const showBubble = isActive && activeBubble && !panelOpen;
@@ -285,7 +301,7 @@ export function VoiceWidget({
           className={`vw-bubble ${activeBubble!.role === "user" ? "vw-bubble--user" : "vw-bubble--bot"} ${activeBubble!.isInterim ? "vw-interim" : ""} ${activeBubble!.speaking ? "vw-speaking" : ""} ${activeBubble!.interrupted ? "vw-interrupted" : ""}`}
           key={activeBubble!.id}
         >
-          {activeBubble!.text || <Dots />}
+          {activeBubble!.text || <ThinkingIndicator toolCalls={session.toolCalls} />}
         </div>
       )}
 
@@ -319,7 +335,7 @@ export function VoiceWidget({
               <div className="vw-tp-empty">Waiting for conversation…</div>
             ) : (
               session.messages.map((msg) => (
-                <TranscriptMsg key={msg.id} msg={msg} />
+                <TranscriptMsg key={msg.id} msg={msg} toolCalls={session.toolCalls} />
               ))
             )}
             {/* Tool UI components — rendered inline after messages */}
@@ -367,15 +383,17 @@ export function VoiceWidget({
 }
 
 /** Single message in the transcript panel */
-function TranscriptMsg({ msg }: { msg: TranscriptMessage }) {
+function TranscriptMsg({ msg, toolCalls = [] }: { msg: TranscriptMessage; toolCalls?: ToolUI[] }) {
   if (msg.role === "system") {
     return <div className="vw-tp-msg vw-tp-msg--system">{msg.text}</div>;
   }
 
   const isUser = msg.role === "user";
 
-  // Hide empty bot bubbles once speaking is done (e.g. LLM went straight to tool call)
-  if (!isUser && !msg.text && !msg.speaking) return null;
+  // Hide empty bot bubbles when speaking is done OR when tools are pending
+  // (tool indicator shows in the active bubble instead)
+  const hasPending = toolCalls.some((tc) => tc.result === undefined);
+  if (!isUser && !msg.text && (!msg.speaking || hasPending)) return null;
 
   const cls = [
     "vw-tp-msg",
@@ -387,5 +405,5 @@ function TranscriptMsg({ msg }: { msg: TranscriptMessage }) {
     .filter(Boolean)
     .join(" ");
 
-  return <div className={cls}>{msg.text || <Dots />}</div>;
+  return <div className={cls}>{msg.text || <ThinkingIndicator toolCalls={toolCalls} />}</div>;
 }
