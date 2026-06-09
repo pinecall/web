@@ -368,6 +368,10 @@ export function VoiceWidget({
 
 /** Single message in the transcript panel */
 function TranscriptMsg({ msg }: { msg: TranscriptMessage }) {
+  if (msg.role === "system") {
+    return <div className="vw-tp-msg vw-tp-msg--system">{msg.text}</div>;
+  }
+
   const isUser = msg.role === "user";
   const cls = [
     "vw-tp-msg",

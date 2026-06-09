@@ -278,6 +278,11 @@ export class VoiceSession extends EventTarget {
       return; // ignore non-JSON
     }
 
+    // DEBUG: log all DC events (remove after debugging)
+    if (d.event && !['audio.metrics', 'speech.started', 'speech.ended'].includes(d.event)) {
+      console.log('[VoiceSession DC]', d.event, d);
+    }
+
     switch (d.event) {
       // ── User speech (STT) ──
       case "speech.started":
@@ -437,6 +442,29 @@ export class VoiceSession extends EventTarget {
 
       // ── Tool events (server-side LLM) ──
       case "llm.tool_call": {
+        console.log('[VoiceSession] 🔧 llm.tool_call received:', JSON.stringify(d, null, 2));
+        // Always show tool calls as inline system messages in transcript
+        if (d.tool_calls?.length) {
+          const toolNames = d.tool_calls.map((tc: any) => tc.name).join(", ");
+          console.log('[VoiceSession] 🔧 Adding system messages for tools:', toolNames);
+          this.setMessages((prev) => {
+            const next = [
+              ...prev,
+              ...d.tool_calls.map((tc: any) => ({
+                id: Date.now() + Math.random(),
+                role: "system" as const,
+                text: `🔧 Using ${tc.name}…`,
+                toolCallId: tc.id,
+              })),
+            ];
+            console.log('[VoiceSession] 🔧 Messages after tool add:', next.length, next.map(m => `${m.role}: ${m.text?.slice(0,40)}`));
+            return next;
+          });
+        } else {
+          console.warn('[VoiceSession] ⚠️ llm.tool_call but no tool_calls array:', d);
+        }
+
+        // Also track in toolCalls state if trackedTools is configured
         const tracked = this.opts.trackedTools;
         if (tracked && d.tool_calls?.length) {
           const newEntries: ToolUI[] = d.tool_calls
@@ -469,6 +497,16 @@ export class VoiceSession extends EventTarget {
 
       case "llm.tool_result": {
         if (d.tool_call_id) {
+          // Update inline transcript message
+          this.setMessages((prev) =>
+            prev.map((m) =>
+              m.toolCallId === d.tool_call_id
+                ? { ...m, text: `✓ ${d.name || "Tool"} done` }
+                : m,
+            ),
+          );
+
+          // Update tracked tool state
           const prev = this.state.toolCalls;
           const idx = prev.findIndex(
             (t) => t.toolCallId === d.tool_call_id,

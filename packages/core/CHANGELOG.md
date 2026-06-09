@@ -1,5 +1,17 @@
 # @pinecall/voice-core
 
+## 0.2.9 — 2026-06-09
+
+### Added
+- Added `"system"` to `TranscriptMessage` roles.
+- Added `toolCallId` to `TranscriptMessage` to track tool call lifecycle.
+- `VoiceSession` now automatically inserts inline system messages into the transcript when tool calls begin and finish.
+
+## 0.2.8
+
+### Changed
+- Minor internal fixes.
+
 ## 0.2.7
 
 ### Changed
