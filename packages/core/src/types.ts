@@ -4,7 +4,7 @@ export type CallPhase = "idle" | "listening" | "speaking" | "pause" | "thinking"
 
 export interface TranscriptMessage {
   id: number;
-  role: "user" | "bot";
+  role: "user" | "bot" | "system";
   text: string;
   /** User: STT partial (still typing) */
   isInterim?: boolean;
@@ -14,6 +14,8 @@ export interface TranscriptMessage {
   interrupted?: boolean;
   /** Bot: server-assigned message ID for word-by-word tracking */
   messageId?: string;
+  /** System: tool call ID (for updating with result) */
+  toolCallId?: string;
 }
 
 // ── Tool UI types ──────────────────────────────────────────────────

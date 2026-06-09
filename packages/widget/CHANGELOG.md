@@ -1,5 +1,12 @@
 # @pinecall/voice-widget
 
+## 0.3.1 — 2026-06-09
+
+### Fixed
+- Fixed module resolution issue by explicitly depending on `voice-core` and `chat-core` versions instead of `workspace:*`.
+- Tool calls now display inline in the transcript panel automatically without needing `trackedTools` configuration.
+- System messages now use centered, muted CSS styling to distinguish them from user and bot bubbles.
+
 ## 0.3.0 — 2026-06-05
 
 ### ⚠️ Breaking Changes

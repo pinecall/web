@@ -462,6 +462,19 @@ export const WIDGET_CSS = /* css */ `
   opacity: .45;
 }
 
+.vw-tp-msg--system {
+  align-self: center;
+  max-width: 90%;
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid rgba(255, 255, 255, .06);
+  color: rgba(255, 255, 255, .4);
+  border-radius: 8px;
+  font-size: 11.5px;
+  padding: 5px 12px;
+  text-align: center;
+  letter-spacing: .02em;
+}
+
 /* Empty state */
 .vw-tp-empty {
   text-align: center;
