@@ -2,6 +2,20 @@
 
 All notable changes to `@pinecall/web` are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.5] - 2026-06-17
+
+### Fixed — `<pinecall-chat>` hangup now stops audio immediately
+
+When clicking the hangup button mid-call, the chatbox went straight into
+`switchMode("text")` which tears the voice session down *and* awaits a new
+ChatSession `connect()`. If the chat-token fetch was slow or failed, the
+button looked like it did nothing — the WebRTC actually died inside
+`teardown()`, but with no UI feedback in between.
+
+`toggleCall()` now calls `VoiceSession.disconnect()` synchronously first
+(killing audio + mic tracks immediately) and re-renders, then performs the
+mode switch. The hangup feels instant regardless of the chat re-connect.
+
 ## [0.3.4] - 2026-06-17
 
 ### Fixed — Inline CSS vars now win over `applyTheme()`

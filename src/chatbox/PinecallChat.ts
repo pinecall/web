@@ -245,6 +245,13 @@ export class PinecallChat extends HTMLElementBase {
 
   private async toggleCall() {
     const inCall = this.mode === "voice" && (this.status() === "connected" || this.status() === "connecting");
+    if (inCall) {
+      // End the WebRTC call FIRST so audio + mic stop immediately, regardless
+      // of whether the chat-side reconnect that follows succeeds. Without this,
+      // a slow chat-token fetch made the hangup feel like "nothing happened".
+      try { (this.session as VoiceSession)?.disconnect(); } catch { /* noop */ }
+      this.render();
+    }
     await this.switchMode(inCall ? "text" : "voice");
   }
 
