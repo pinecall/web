@@ -1,5 +1,5 @@
 /**
- * @pinecall/chat-core — Type definitions.
+ * @pinecall/web/chat — Type definitions.
  */
 
 /** Chat session connection status. */

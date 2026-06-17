@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, useCallback } from "react";
-import { VoiceSession } from "@pinecall/voice-core";
-import type { VoiceSessionOptions } from "@pinecall/voice-core";
+import { VoiceSession } from "../core";
+import type { VoiceSessionOptions } from "../core";
 
 /**
  * React hook wrapping VoiceSession. Re-exports the entire state plus

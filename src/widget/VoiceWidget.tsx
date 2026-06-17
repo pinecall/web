@@ -10,7 +10,7 @@
  */
 import { useState, useEffect, useCallback, useRef, useMemo, createContext, useContext } from "react";
 import type { ReactNode } from "react";
-import type { TranscriptMessage, ToolUI, SessionStatus, VoiceSessionState } from "@pinecall/voice-core";
+import type { TranscriptMessage, ToolUI, SessionStatus, VoiceSessionState } from "../core";
 import type { VoiceWidgetProps, VoiceWidgetTheme } from "./types";
 import { useVoiceSession } from "./useVoiceSession";
 import { WIDGET_CSS } from "./styles";

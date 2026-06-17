@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>&lt;pinecall-orb&gt; — vanilla demo</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #0e0c12;
+        color: #e8e4f0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 32px;
+      }
+      h1 { font-weight: 600; font-size: 18px; margin: 0; }
+      .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      input, select {
+        background: #1a1820; color: #e8e4f0; border: 1px solid #333;
+        border-radius: 8px; padding: 8px 10px; font-size: 13px;
+      }
+      button {
+        background: #cd58b2; color: #fff; border: 0; border-radius: 8px;
+        padding: 8px 14px; font-size: 13px; cursor: pointer;
+      }
+      #log {
+        font-family: ui-monospace, monospace; font-size: 12px;
+        background: #15131a; border: 1px solid #2a2730; border-radius: 8px;
+        padding: 12px; max-height: 220px; overflow: auto; white-space: pre-wrap;
+      }
+      /* Demo: show the orb INLINE in a stage instead of fixed bottom-right,
+         so it's obviously visible. Consumers normally let it float (default). */
+      #stage {
+        display: flex; align-items: center; justify-content: center;
+        min-height: 220px; border: 1px dashed #2a2730; border-radius: 12px;
+        background: radial-gradient(circle at 50% 40%, #17141d, #0e0c12);
+      }
+      #stage pinecall-orb { position: static; }
+    </style>
+  </head>
+  <body>
+    <h1>&lt;pinecall-orb&gt; — vanilla custom element</h1>
+
+    <div class="row">
+      <label>agent <input id="agent" value="pines" /></label>
+      <label>server <input id="server" value="https://voice.pinecall.io" size="30" /></label>
+      <label>preset
+        <select id="preset">
+          <option>dark</option>
+          <option>midnight</option>
+          <option>aurora</option>
+          <option>sunset</option>
+          <option>light</option>
+        </select>
+      </label>
+      <button id="mount">Mount / remount orb</button>
+    </div>
+
+    <div id="stage"><em style="color:#666">orb will appear here — click "Mount"</em></div>
+
+    <div id="log"></div>
+
+    <script type="module">
+      const log = (m) => {
+        const el = document.getElementById("log");
+        el.textContent += m + "\n";
+        el.scrollTop = el.scrollHeight;
+      };
+      // Surface any runtime/module error on the page itself.
+      window.addEventListener("error", (e) => log("❌ error: " + (e.message || e.error)));
+      window.addEventListener("unhandledrejection", (e) => log("❌ rejection: " + e.reason));
+
+      // Resolve the module URL from the current origin (works whether served by
+      // the token-server on :5050 or any static server). Falls back to :5050.
+      const ORIGIN = location.protocol.startsWith("http") ? location.origin : "http://localhost:5050";
+      const ORB_URL = ORIGIN + "/dist/orb/index.js";
+      try {
+        await import(ORB_URL); // registers <pinecall-orb>
+        log("✅ module loaded from " + ORB_URL);
+        log("<pinecall-orb> defined: " + !!customElements.get("pinecall-orb"));
+      } catch (err) {
+        log("❌ failed to import " + ORB_URL + " — " + err);
+      }
+
+      document.getElementById("mount").addEventListener("click", () => {
+        const stage = document.getElementById("stage");
+        stage.innerHTML = "";
+        const orb = document.createElement("pinecall-orb");
+        orb.setAttribute("agent", document.getElementById("agent").value.trim());
+        orb.setAttribute("server", document.getElementById("server").value.trim());
+        orb.setAttribute("preset", document.getElementById("preset").value);
+        orb.setAttribute("name", "Demo");
+        // tokenProvider is a FUNCTION → set as a property, not an attribute.
+        // Mints a short-lived token from the local token-server (same origin).
+        orb.tokenProvider = async () => {
+          const r = await fetch(ORIGIN + "/api/token");
+          if (!r.ok) throw new Error("token endpoint " + r.status);
+          return r.json();
+        };
+        orb.addEventListener("pinecall:status", (e) => log("status: " + e.detail));
+        orb.addEventListener("pinecall:error", (e) => log("error: " + e.detail));
+        orb.addEventListener("pinecall:transcript", (e) =>
+          log("transcript: " + (e.detail.at(-1)?.text ?? "")),
+        );
+        stage.appendChild(orb);
+        log("mounted <pinecall-orb agent=" + orb.getAttribute("agent") + ">. Click the orb to call.");
+      });
+    </script>
+  </body>
+</html>

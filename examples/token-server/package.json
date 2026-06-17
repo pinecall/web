@@ -1,0 +1,13 @@
+{
+  "name": "@pinecall/web-orb-token-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tiny token provider for the <pinecall-orb> demo — registers an agent and mints WebRTC tokens.",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@pinecall/sdk": "latest"
+  }
+}

@@ -1,12 +1,12 @@
-export { VoiceWidget, useVoice } from "./VoiceWidget";
-export { useVoiceSession } from "./useVoiceSession";
+export { VoiceWidget, useVoice } from "./widget/VoiceWidget";
+export { useVoiceSession } from "./widget/useVoiceSession";
 // Standalone — compose your own multi-channel UI
-export { ContactHub } from "./ContactHub";
-export type { CallMeState } from "./ContactHub";
-export { ChatView } from "./ChatView";
-export { useAgentInfo } from "./useAgentInfo";
-export { t } from "./locales";
-export { PRESETS } from "./presets";
+export { ContactHub } from "./widget/ContactHub";
+export type { CallMeState } from "./widget/ContactHub";
+export { ChatView } from "./widget/ChatView";
+export { useAgentInfo } from "./widget/useAgentInfo";
+export { t } from "./widget/locales";
+export { PRESETS } from "./widget/presets";
 export type {
   VoiceWidgetProps,
   VoiceWidgetTheme,
@@ -19,7 +19,7 @@ export type {
   AgentInfo,
   ChatConfig,
   ChatQuickOption,
-} from "./types";
+} from "./widget/types";
 // Re-export core types for convenience
 export type {
   SessionStatus,
@@ -30,4 +30,4 @@ export type {
   ToolCallEvent,
   ToolResultEvent,
   ToolUI,
-} from "@pinecall/voice-core";
+} from "./core";
