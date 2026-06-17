@@ -2,6 +2,23 @@
 
 All notable changes to `@pinecall/web` are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.4] - 2026-06-17
+
+### Fixed — Inline CSS vars now win over `applyTheme()`
+
+`<pinecall-orb>`, `<pinecall-modal>` and `<pinecall-chat>` re-ran their
+`applyTheme()` on connect and on every `preset` / `theme` attribute change,
+which unconditionally called `this.style.setProperty(...)` for every theme
+CSS var — including auto-deriving `--pm-card-from` / `--pm-card-to` from
+`colorAccent`. That **overwrote inline CSS vars set by the consumer**
+(e.g. `style={{ "--pm-card-from": "oklch(...)" }}` in React), so brand-
+re-skinning only "kicked in" after a later interaction triggered a React
+re-render of the inline style.
+
+`applyTheme()` now skips any CSS var that the consumer has already set
+inline on the host. The auto-tint from `colorAccent` likewise only fills in
+`--pm-card-from` / `--pm-card-to` if the consumer didn't provide them.
+
 ## [0.3.3] - 2026-06-17
 
 ### Added — Chatbox light/alt-palette theming tokens

@@ -278,14 +278,22 @@ export class PinecallChat extends HTMLElementBase {
   private applyTheme() {
     const preset = (this.getAttribute("preset") as VoiceWidgetPreset) || "dark";
     const merged = { ...(PRESETS[preset] ?? PRESETS.dark), ...this._theme };
+    // Don't overwrite CSS vars the consumer has already set inline (e.g. via
+    // `style={{ "--pm-card-from": ... }}` in React). Inline overrides win.
     for (const [k, cssVar] of Object.entries(THEME_VAR_MAP)) {
       const val = merged[k as keyof VoiceWidgetTheme];
-      if (val && cssVar) this.style.setProperty(cssVar, val);
+      if (val && cssVar && !this.style.getPropertyValue(cssVar)) {
+        this.style.setProperty(cssVar, val);
+      }
     }
     const accent = (merged.colorAccent || "124, 58, 237").split(",").map((n) => +n.trim());
     const mul = (f: number) => accent.map((c) => Math.round(Math.min(255, c * f))).join(", ");
-    this.style.setProperty("--pm-card-from", `rgb(${mul(0.78)})`);
-    this.style.setProperty("--pm-card-to", `rgb(${mul(0.46)})`);
+    if (!this.style.getPropertyValue("--pm-card-from")) {
+      this.style.setProperty("--pm-card-from", `rgb(${mul(0.78)})`);
+    }
+    if (!this.style.getPropertyValue("--pm-card-to")) {
+      this.style.setProperty("--pm-card-to", `rgb(${mul(0.46)})`);
+    }
   }
 
   private syncHeader() {

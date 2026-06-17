@@ -266,9 +266,13 @@ export class PinecallOrb extends HTMLElementBase {
     const presetName = (this.getAttribute("preset") as VoiceWidgetPreset) || "dark";
     const base = PRESETS[presetName] ?? PRESETS.dark;
     const merged = { ...base, ...this._theme };
+    // Don't overwrite CSS vars the consumer has already set inline (e.g. via
+    // `style={{ "--vw-orb-from": ... }}` in React). Inline overrides win.
     for (const [key, cssVar] of Object.entries(THEME_VAR_MAP)) {
       const val = merged[key as keyof VoiceWidgetTheme];
-      if (val !== undefined) this.style.setProperty(cssVar, val);
+      if (val !== undefined && !this.style.getPropertyValue(cssVar)) {
+        this.style.setProperty(cssVar, val);
+      }
     }
   }
 
