@@ -15,6 +15,7 @@ export interface CallModalProps {
   server?: string;
   name?: string;
   preset?: VoiceWidgetPreset;
+  visual?: "orb" | "wave";
   avatar?: string;
   open?: boolean;
   config?: Record<string, unknown>;
@@ -25,7 +26,7 @@ export interface CallModalProps {
 }
 
 export function CallModal({
-  agent, server, name, preset, avatar, open,
+  agent, server, name, preset, visual, avatar, open,
   config, metadata, theme, tokenProvider, onStatus,
 }: CallModalProps) {
   const ref = useRef<PinecallModal | null>(null);
@@ -52,6 +53,7 @@ export function CallModal({
       server={server}
       name={name}
       preset={preset}
+      visual={visual}
       avatar={avatar}
       {...(open ? { open: "" } : {})}
     />
@@ -63,7 +65,7 @@ declare global {
   namespace JSX {
     interface IntrinsicElements {
       "pinecall-modal": React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
-        agent?: string; server?: string; name?: string; preset?: string; avatar?: string; open?: string;
+        agent?: string; server?: string; name?: string; preset?: string; visual?: string; avatar?: string; open?: string;
       };
     }
   }

@@ -22,6 +22,12 @@ npm install react react-dom
 | `@pinecall/web/core` | `VoiceSession` — framework-agnostic WebRTC voice client | ❌ |
 | `@pinecall/web/chat` | `ChatSession` — framework-agnostic text chat client | ❌ |
 | `@pinecall/web/chat/react` | `usePinecallChat` — React hook over `ChatSession` | ✅ |
+| `@pinecall/web/orb` | `<pinecall-orb>` — framework-agnostic voice orb (Custom Element) | ❌ |
+| `@pinecall/web/orb/react` | `<Orb>` — thin React wrapper for `<pinecall-orb>` | ✅ |
+| `@pinecall/web/modal` | `<pinecall-modal>` — glass call modal (Custom Element): orb **or** wave visual, live captions, text-during-call, transcript view | ❌ |
+| `@pinecall/web/modal/react` | `<CallModal>` — thin React wrapper for `<pinecall-modal>` | ✅ |
+
+> **Web Components vs React widget:** the `/orb` and `/modal` entries are native Custom Elements — they work in **any** framework (React, Vue, Svelte, Angular, vanilla) and need no React. The original `@pinecall/web` React widget stays available unchanged.
 
 ## Quick Start
 
@@ -51,6 +57,35 @@ import { usePinecallChat } from "@pinecall/web/chat/react";
 const chat = usePinecallChat({ agent: "florencia" });
 ```
 
+### Web Components (any framework)
+
+```html
+<!-- voice orb -->
+<pinecall-orb agent="mara" name="Mara" preset="midnight"></pinecall-orb>
+
+<!-- call modal: orb or wave visual, captions, text-during-call -->
+<pinecall-modal agent="mara" name="Mara" visual="wave"></pinecall-modal>
+
+<script type="module">
+  import "@pinecall/web/orb";
+  import "@pinecall/web/modal";
+  // function/object props are set as PROPERTIES (not attributes):
+  const modal = document.querySelector("pinecall-modal");
+  modal.tokenProvider = async () => (await fetch("/api/token")).json();
+</script>
+```
+
+Attributes: `agent`, `server`, `name`, `label`, `preset`, `avatar`, `visual` (`orb` | `wave`). Properties: `config`, `metadata`, `tokenProvider`, `theme`. Events: `pinecall:status`, `pinecall:transcript`, `pinecall:error`. Theme via the `--vw-*` / `--pm-*` CSS custom properties (e.g. `--pm-user` / `--pm-bot` for speaker colors).
+
+In React, prefer the wrappers so object/function props bind cleanly:
+
+```tsx
+import { CallModal } from "@pinecall/web/modal/react";
+
+<CallModal agent="mara" name="Mara" visual="wave"
+           tokenProvider={async () => (await fetch("/api/token")).json()} />
+```
+
 ## Structure
 
 ```
@@ -59,10 +94,12 @@ web/
 │   ├── index.ts        @pinecall/web        — React widgets barrel
 │   ├── core/           @pinecall/web/core   — VoiceSession (vanilla)
 │   ├── chat/           @pinecall/web/chat[/react] — ChatSession + React hook
+│   ├── orb/            @pinecall/web/orb[/react]  — <pinecall-orb> custom element
+│   ├── modal/          @pinecall/web/modal[/react] — <pinecall-modal> call modal
 │   └── widget/         React components (VoiceWidget, ContactHub, ChatView…)
 ├── docs/               diagrams + legacy changelogs
-├── examples/react/     Demo app with preset switcher
-├── tsup.config.ts      Build (4 entries → ESM + CJS + DTS)
+├── examples/           demo pages (orb.html, modal.html) + token-server + react app
+├── tsup.config.ts      Build (8 entries → ESM + CJS + DTS)
 └── tsconfig.json
 ```
 
