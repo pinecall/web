@@ -8,7 +8,7 @@
     "start": "node server.mjs"
   },
   "dependencies": {
-    "@pinecall/sdk": "latest",
+    "@pinecall/sdk": "file:../../../sdk",
     "zod": "^3.23.8"
   }
 }

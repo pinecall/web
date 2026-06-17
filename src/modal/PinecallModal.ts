@@ -319,6 +319,7 @@ export class PinecallModal extends HTMLElementBase {
       this.dispatchEvent(new CustomEvent("pinecall:status", { detail: st.status }));
       this.prevStatus = st.status;
     }
+    if (st?.messages) this.dispatchEvent(new CustomEvent("pinecall:transcript", { detail: st.messages }));
     this.render();
   }
 

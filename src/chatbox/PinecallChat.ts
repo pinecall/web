@@ -266,11 +266,12 @@ export class PinecallChat extends HTMLElementBase {
   }
 
   private onState() {
-    const st = this.session?.getState() as { status: string } | undefined;
+    const st = this.session?.getState() as { status: string; messages?: Msg[] } | undefined;
     if (st && st.status !== this.prevStatus) {
       this.dispatchEvent(new CustomEvent("pinecall:status", { detail: st.status }));
       this.prevStatus = st.status;
     }
+    if (st?.messages) this.dispatchEvent(new CustomEvent("pinecall:transcript", { detail: st.messages }));
     this.render();
   }
 
