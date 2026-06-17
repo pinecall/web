@@ -16,7 +16,8 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join, normalize, extname } from "node:path";
-import { Pinecall } from "@pinecall/sdk";
+import { Pinecall, tool } from "@pinecall/sdk";
+import { z } from "zod";
 
 const PORT = Number(process.env.PORT) || 5050;
 const ROOT = normalize(join(dirname(fileURLToPath(import.meta.url)), "..", "..")); // webrtc repo root
@@ -29,18 +30,88 @@ if (!apiKey) {
 
 const pc = new Pinecall({ apiKey });
 
-const GREETING = "Hi! I'm the Pinecall demo. How can I help?";
+const GREETING = "Hi! I'm the Pinecall weather demo. Ask me the weather in any city.";
 
-// A simple voice-only demo agent. allowedOrigins is a dev fallback; the real
-// security here is the token minted server-side below.
+// ── Weather tools (Open-Meteo, no API key) — ported from the landing's Pines agent ──
+
+const WMO = {
+  0: ["Clear sky", "☀️"], 1: ["Mainly clear", "🌤️"], 2: ["Partly cloudy", "⛅"], 3: ["Overcast", "☁️"],
+  45: ["Foggy", "🌫️"], 48: ["Rime fog", "🌫️"], 51: ["Light drizzle", "🌦️"], 53: ["Drizzle", "🌦️"],
+  55: ["Dense drizzle", "🌧️"], 61: ["Light rain", "🌧️"], 63: ["Rain", "🌧️"], 65: ["Heavy rain", "⛈️"],
+  71: ["Light snow", "🌨️"], 73: ["Snow", "❄️"], 75: ["Heavy snow", "❄️"], 80: ["Rain showers", "🌦️"],
+  81: ["Heavy showers", "⛈️"], 82: ["Violent showers", "⛈️"], 95: ["Thunderstorm", "⛈️"],
+  96: ["Thunderstorm + hail", "⛈️"], 99: ["Thunderstorm + heavy hail", "⛈️"],
+};
+const decodeWMO = (code) => { const m = WMO[code] ?? ["Unknown", "🌡️"]; return { condition: m[0], icon: m[1] }; };
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+async function geocode(city) {
+  const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en`);
+  const d = await r.json();
+  return d.results?.[0] ?? null;
+}
+
+const getWeather = tool({
+  name: "get_weather",
+  description: "Get the current weather for a city. ALWAYS call this when the user asks about weather — never guess.",
+  schema: z.object({ city: z.string().describe("City name, e.g. 'Tokyo', 'Buenos Aires', 'London'") }),
+  execute: async ({ city }) => {
+    const g = await geocode(city);
+    if (!g) return { error: true, message: `Could not find city "${city}".` };
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=celsius`);
+    const c = (await r.json()).current;
+    const { condition, icon } = decodeWMO(c.weather_code);
+    return {
+      city: g.name, country: g.country, temperature: Math.round(c.temperature_2m),
+      feelsLike: Math.round(c.apparent_temperature), condition, icon,
+      humidity: c.relative_humidity_2m, windSpeed: Math.round(c.wind_speed_10m), unit: "°C",
+    };
+  },
+});
+
+const getForecast = tool({
+  name: "get_forecast",
+  description: "Get a 5-day weather forecast for a city. Call this for upcoming weather or a specific future day.",
+  schema: z.object({ city: z.string().describe("City name, e.g. 'Tokyo', 'Buenos Aires', 'London'") }),
+  execute: async ({ city }) => {
+    const g = await geocode(city);
+    if (!g) return { error: true, message: `Could not find city "${city}".` };
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&daily=temperature_2m_max,temperature_2m_min,weather_code&temperature_unit=celsius&forecast_days=5&timezone=auto`);
+    const d = (await r.json()).daily;
+    const days = d.time.map((date, i) => {
+      const { condition, icon } = decodeWMO(d.weather_code[i]);
+      return {
+        day: DAY_NAMES[new Date(date + "T12:00:00").getDay()], date,
+        high: Math.round(d.temperature_2m_max[i]), low: Math.round(d.temperature_2m_min[i]), condition, icon,
+      };
+    });
+    return { city: g.name, country: g.country, days, unit: "°C" };
+  },
+});
+
+// Weather demo agent (Pines-style). Tools let you actually test a real conversation.
 const agent = pc.agent("web-orb-demo", {
-  prompt: "You are the Pinecall web demo agent. Be warm, brief, and helpful.",
+  prompt: `You are the Pinecall weather demo assistant. Be warm and concise. Respond in whatever language the user speaks.
+
+When the user asks about weather or a forecast:
+1. FIRST say a short line like "Let me check the weather in [city]!" (no tool yet).
+2. On your NEXT turn, call get_weather (current) or get_forecast (5-day).
+Never call a tool and speak in the same turn. Never guess — always use a tool.
+
+After results, report naturally like a TV weather presenter: temperature, feels-like, conditions, wind. Then offer another city or the forecast.
+
+For spoken (voice) replies: write numbers and units as words ("thirty three degrees celsius", "eighty percent"), no symbols (°, %, *, #) or markdown.`,
   llm: "openai/gpt-5-chat-latest",
   voice: "elevenlabs/sarah",
   stt: "deepgram/flux",
   language: "en",
-  greeting: GREETING, // declarative (server-side) greeting
+  greeting: GREETING, // declarative (server-side) greeting — voice only
+  tools: [getWeather, getForecast],
   allowedOrigins: ["http://localhost:*"],
+  config: {
+    // real audio levels → the modal/chatbox waveform reacts to actual speech
+    analysis: { send_audio_metrics: true, audio_metrics_interval_ms: 250 },
+  },
 });
 
 // Belt-and-suspenders for WebRTC: if the declarative greeting didn't fire,
@@ -48,6 +119,11 @@ const agent = pc.agent("web-orb-demo", {
 // whether the event reaches us at all.
 agent.on("call.started", (call) => {
   console.log(`  ▷ call.started — transport=${call.transport} direction=${call.direction} id=${call.id}`);
+});
+// Text chat does NOT auto-greet (unlike voice) — greet on chat.started.
+agent.on("chat.started", (call) => {
+  console.log(`  ▷ chat.started — id=${call.id}`);
+  call.say(GREETING, { addToHistory: true });
 });
 agent.on("call.ended", (call, reason) => {
   console.log(`  ▷ call.ended — ${reason}`);
@@ -74,9 +150,13 @@ const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://localhost:${PORT}`);
 
-    // ── Token endpoint ──
+    // ── Token endpoints ──
     if (url.pathname === "/api/token") {
       const token = await agent.createToken("webrtc");
+      return send(res, 200, JSON.stringify(token), "application/json");
+    }
+    if (url.pathname === "/api/chat-token") {
+      const token = await agent.createToken("chat");
       return send(res, 200, JSON.stringify(token), "application/json");
     }
 

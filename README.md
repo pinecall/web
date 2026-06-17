@@ -26,8 +26,10 @@ npm install react react-dom
 | `@pinecall/web/orb/react` | `<Orb>` — thin React wrapper for `<pinecall-orb>` | ✅ |
 | `@pinecall/web/modal` | `<pinecall-modal>` — glass call modal (Custom Element): orb **or** wave visual, live captions, text-during-call, transcript view | ❌ |
 | `@pinecall/web/modal/react` | `<CallModal>` — thin React wrapper for `<pinecall-modal>` | ✅ |
+| `@pinecall/web/chatbox` | `<pinecall-chat>` — docked chatbox (Custom Element): text chat that can escalate to a WebRTC voice call, with conversation continuity | ❌ |
+| `@pinecall/web/chatbox/react` | `<ChatBox>` — thin React wrapper for `<pinecall-chat>` | ✅ |
 
-> **Web Components vs React widget:** the `/orb` and `/modal` entries are native Custom Elements — they work in **any** framework (React, Vue, Svelte, Angular, vanilla) and need no React. The original `@pinecall/web` React widget stays available unchanged.
+> **Web Components vs React widget:** the `/orb`, `/modal` and `/chatbox` entries are native Custom Elements — they work in **any** framework (React, Vue, Svelte, Angular, vanilla) and need no React. The original `@pinecall/web` React widget stays available unchanged.
 
 ## Quick Start
 
@@ -66,16 +68,27 @@ const chat = usePinecallChat({ agent: "florencia" });
 <!-- call modal: orb or wave visual, captions, text-during-call -->
 <pinecall-modal agent="mara" name="Mara" visual="wave"></pinecall-modal>
 
+<!-- docked chatbox: text chat + a call button to escalate to voice -->
+<pinecall-chat agent="mara" name="Mara" greeting="Hi! How can I help?"></pinecall-chat>
+
 <script type="module">
   import "@pinecall/web/orb";
   import "@pinecall/web/modal";
+  import "@pinecall/web/chatbox";
   // function/object props are set as PROPERTIES (not attributes):
   const modal = document.querySelector("pinecall-modal");
   modal.tokenProvider = async () => (await fetch("/api/token")).json();
+  // the chatbox tokenProvider is channel-aware (text vs voice):
+  document.querySelector("pinecall-chat").tokenProvider =
+    async (channel) => (await fetch(`/api/token?channel=${channel}`)).json();
 </script>
 ```
 
-Attributes: `agent`, `server`, `name`, `label`, `preset`, `avatar`, `visual` (`orb` | `wave`). Properties: `config`, `metadata`, `tokenProvider`, `theme`. Events: `pinecall:status`, `pinecall:transcript`, `pinecall:error`. Theme via the `--vw-*` / `--pm-*` CSS custom properties (e.g. `--pm-user` / `--pm-bot` for speaker colors).
+**Orb** — `opens` attribute: `"inline"` (captions beside the orb, default), `"modal"` (opens a `<pinecall-modal>`), or `"chat"` (opens a `<pinecall-chat>`). One orb, any presentation.
+
+**Chatbox** — text-first; a call button escalates to a WebRTC voice call and the conversation continues (prior transcript carried over). Attributes: `greeting` (first bot bubble, client-side), `auto-call` (start in a call), `no-call` (pure text). Its `tokenProvider` is **channel-aware**: `(channel: "chat" | "webrtc") => {token, server}`.
+
+Common attributes: `agent`, `server`, `name`, `label`, `preset`, `avatar`, `visual` (`orb` | `wave`). Properties: `config`, `metadata`, `tokenProvider`, `theme`. Events: `pinecall:status`, `pinecall:transcript`, `pinecall:error`, `pinecall:open`, `pinecall:close`. Theme via the `--vw-*` / `--pm-*` CSS custom properties (e.g. `--pm-user` / `--pm-bot` for speaker colors).
 
 In React, prefer the wrappers so object/function props bind cleanly:
 
@@ -96,10 +109,11 @@ web/
 │   ├── chat/           @pinecall/web/chat[/react] — ChatSession + React hook
 │   ├── orb/            @pinecall/web/orb[/react]  — <pinecall-orb> custom element
 │   ├── modal/          @pinecall/web/modal[/react] — <pinecall-modal> call modal
+│   ├── chatbox/        @pinecall/web/chatbox[/react] — <pinecall-chat> chatbox
 │   └── widget/         React components (VoiceWidget, ContactHub, ChatView…)
 ├── docs/               diagrams + legacy changelogs
-├── examples/           demo pages (orb.html, modal.html) + token-server + react app
-├── tsup.config.ts      Build (8 entries → ESM + CJS + DTS)
+├── examples/           demo pages (orb/modal/chatbox.html) + token-server + react app
+├── tsup.config.ts      Build (10 entries → ESM + CJS + DTS)
 └── tsconfig.json
 ```
 

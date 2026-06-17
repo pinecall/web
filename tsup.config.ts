@@ -10,6 +10,8 @@ export default defineConfig({
     "orb/react": "src/orb/react.tsx", // @pinecall/web/orb/react — React <Orb> wrapper
     "modal/index": "src/modal/index.ts", // @pinecall/web/modal  — <pinecall-modal> call modal
     "modal/react": "src/modal/react.tsx", // @pinecall/web/modal/react — React <CallModal>
+    "chatbox/index": "src/chatbox/index.ts", // @pinecall/web/chatbox — <pinecall-chat> chatbox
+    "chatbox/react": "src/chatbox/react.tsx", // @pinecall/web/chatbox/react — React <ChatBox>
   },
   format: ["esm", "cjs"],
   dts: true,

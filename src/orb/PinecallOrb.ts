@@ -60,8 +60,12 @@ const HTMLElementBase: typeof HTMLElement =
 
 export class PinecallOrb extends HTMLElementBase {
   static get observedAttributes() {
-    return ["agent", "server", "name", "label", "preset"];
+    return ["agent", "server", "name", "label", "preset", "opens"];
   }
+
+  /** What the orb opens on click: "inline" (captions beside the orb, default),
+   * "modal" (a <pinecall-modal>), or "chat" (a <pinecall-chat> chatbox). */
+  private launcher: HTMLElement | null = null;
 
   // ── Properties (objects/functions — cannot be HTML attributes) ──
   private _config?: Record<string, unknown>;
@@ -171,9 +175,43 @@ export class PinecallOrb extends HTMLElementBase {
   getState(): Readonly<VoiceSessionState> | null { return this.session?.getState() ?? null; }
 
   private toggle() {
+    const opens = this.getAttribute("opens");
+    if (opens === "modal" || opens === "chat") return void this.openLauncher(opens);
     const st = this.statusOf();
     if (st === "connected") this.disconnect();
     else if (st === "idle" || st === "error") void this.connect();
+  }
+
+  /**
+   * opens="modal" | "chat" — the orb becomes a launcher button that opens a
+   * <pinecall-modal> / <pinecall-chat> (created once, FAB suppressed so the orb
+   * is the only launcher) instead of starting an inline call.
+   */
+  private async openLauncher(kind: "modal" | "chat") {
+    if (!this.launcher) {
+      if (kind === "chat") await import("../chatbox/index");
+      else await import("../modal/index");
+      const tag = kind === "chat" ? "pinecall-chat" : "pinecall-modal";
+      const el = document.createElement(tag) as HTMLElement & {
+        config?: unknown; metadata?: unknown; tokenProvider?: unknown; theme?: unknown;
+      };
+      el.setAttribute("no-fab", "");
+      for (const a of ["agent", "server", "name", "preset"]) {
+        const v = this.getAttribute(a);
+        if (v != null) el.setAttribute(a, v);
+      }
+      // pass through function/object props
+      el.config = this._config;
+      el.metadata = this._metadata;
+      el.tokenProvider = this._tokenProvider;
+      el.theme = this._theme;
+      // hide the orb while the launcher is open; restore when it closes
+      el.addEventListener("pinecall:close", () => { this.style.removeProperty("display"); });
+      document.body.appendChild(el);
+      this.launcher = el;
+    }
+    this.style.display = "none";
+    (this.launcher as unknown as { open(): void }).open();
   }
 
   // ── Session management ──
