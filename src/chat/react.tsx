@@ -1,11 +1,11 @@
 /**
- * @pinecall/chat-core/react
+ * @pinecall/web/chat/react
  *
  * React hook for Pinecall text chat.
  *
  * @example
  * ```tsx
- * import { usePinecallChat } from "@pinecall/chat-core/react";
+ * import { usePinecallChat } from "@pinecall/web/chat/react";
  *
  * function Chat() {
  *   const { messages, send, connected, typing } = usePinecallChat({

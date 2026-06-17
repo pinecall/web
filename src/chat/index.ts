@@ -1,11 +1,11 @@
 /**
- * @pinecall/chat-core
+ * @pinecall/web/chat
  *
  * Framework-agnostic text chat client for Pinecall agents.
  *
  * @example
  * ```ts
- * import { ChatSession } from "@pinecall/chat-core";
+ * import { ChatSession } from "@pinecall/web/chat";
  *
  * const chat = new ChatSession({ agent: "florencia" });
  * chat.subscribe(() => console.log(chat.getState()));

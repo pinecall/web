@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import ReactDOM from "react-dom/client";
-import { VoiceWidget } from "@pinecall/voice-widget";
-import type { VoiceWidgetPreset, LanguagePreset } from "@pinecall/voice-widget";
+import { VoiceWidget } from "@pinecall/web";
+import type { VoiceWidgetPreset, LanguagePreset } from "@pinecall/web";
 
 const PRESETS: VoiceWidgetPreset[] = ["dark", "midnight", "aurora", "sunset", "light"];
 

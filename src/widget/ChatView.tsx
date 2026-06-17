@@ -1,11 +1,11 @@
 /**
  * ChatView — LLM text chat inside the ContactHub popover.
  *
- * Uses @pinecall/chat-core for WebSocket chat + marked for markdown.
+ * Uses @pinecall/web/chat for WebSocket chat + marked for markdown.
  * StreamingText uses rAF-based character reveal (ported from blossom Chat.jsx).
  */
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
-import { usePinecallChat } from "@pinecall/chat-core/react";
+import { usePinecallChat } from "../chat/react";
 import { marked } from "marked";
 import type { ChatConfig, LocaleStrings } from "./types.js";
 import { t } from "./locales.js";

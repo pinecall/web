@@ -1,24 +1,149 @@
 {
-  "name": "pinecall-voice",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Pinecall voice SDK monorepo",
+  "name": "@pinecall/web",
+  "version": "0.1.0",
+  "description": "Pinecall web client — WebRTC voice, text chat, and React widgets for Pinecall agents",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./core": {
+      "import": {
+        "types": "./dist/core/index.d.ts",
+        "default": "./dist/core/index.js"
+      },
+      "require": {
+        "types": "./dist/core/index.d.cts",
+        "default": "./dist/core/index.cjs"
+      }
+    },
+    "./chat": {
+      "import": {
+        "types": "./dist/chat/index.d.ts",
+        "default": "./dist/chat/index.js"
+      },
+      "require": {
+        "types": "./dist/chat/index.d.cts",
+        "default": "./dist/chat/index.cjs"
+      }
+    },
+    "./chat/react": {
+      "import": {
+        "types": "./dist/chat/react.d.ts",
+        "default": "./dist/chat/react.js"
+      },
+      "require": {
+        "types": "./dist/chat/react.d.cts",
+        "default": "./dist/chat/react.cjs"
+      }
+    },
+    "./orb": {
+      "import": {
+        "types": "./dist/orb/index.d.ts",
+        "default": "./dist/orb/index.js"
+      },
+      "require": {
+        "types": "./dist/orb/index.d.cts",
+        "default": "./dist/orb/index.cjs"
+      }
+    },
+    "./orb/react": {
+      "import": {
+        "types": "./dist/orb/react.d.ts",
+        "default": "./dist/orb/react.js"
+      },
+      "require": {
+        "types": "./dist/orb/react.d.cts",
+        "default": "./dist/orb/react.cjs"
+      }
+    },
+    "./modal": {
+      "import": {
+        "types": "./dist/modal/index.d.ts",
+        "default": "./dist/modal/index.js"
+      },
+      "require": {
+        "types": "./dist/modal/index.d.cts",
+        "default": "./dist/modal/index.cjs"
+      }
+    },
+    "./modal/react": {
+      "import": {
+        "types": "./dist/modal/react.d.ts",
+        "default": "./dist/modal/react.js"
+      },
+      "require": {
+        "types": "./dist/modal/react.d.cts",
+        "default": "./dist/modal/react.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
   "scripts": {
-    "build": "pnpm -r --filter='./packages/*' build",
-    "dev:example": "pnpm --filter @pinecall/example-react dev",
-    "typecheck": "pnpm -r typecheck",
-    "clean": "pnpm -r exec rm -rf dist && rm -rf node_modules",
-    "changeset": "changeset",
-    "version-packages": "changeset version",
-    "release": "pnpm build && changeset publish"
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "release": "pnpm build && npm publish"
+  },
+  "dependencies": {
+    "marked": "^18.0.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.10",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsup": "^8.3.5",
     "typescript": "^5.6.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "webrtc",
+    "voice",
+    "chat",
+    "ai",
+    "agent",
+    "react",
+    "widget",
+    "pinecall"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pinecall/web"
   },
   "packageManager": "pnpm@10.2.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=18"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

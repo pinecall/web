@@ -1,89 +1,85 @@
-# Pinecall Voice SDK
+# @pinecall/web
 
-Monorepo for [Pinecall](https://pinecall.io) voice client libraries — real-time WebRTC voice sessions with AI agents.
+[![npm](https://img.shields.io/npm/v/@pinecall/web)](https://www.npmjs.com/package/@pinecall/web)
 
-## Packages
+The web client for [Pinecall](https://pinecall.io) agents — real-time WebRTC **voice**, text **chat**, and drop-in **React** widgets, in one package.
 
-| Package | Description | npm |
-|---------|-------------|-----|
-| [`@pinecall/voice-core`](./packages/core) | Framework-agnostic WebRTC voice session client. `VoiceSession` class with EventTarget. Works with any framework or vanilla JS. | [![npm](https://img.shields.io/npm/v/@pinecall/voice-core)](https://www.npmjs.com/package/@pinecall/voice-core) |
-| [`@pinecall/voice-widget`](./packages/widget) | Drop-in React voice widget. Animated orb UI with real-time transcript, theme presets, and full customization. | [![npm](https://img.shields.io/npm/v/@pinecall/voice-widget)](https://www.npmjs.com/package/@pinecall/voice-widget) |
+> **Migrating from `@pinecall/voice-core` / `@pinecall/voice-widget` / `@pinecall/chat-core`?** They are now a single package. See [Entry points](#entry-points) below — the React widget moves to the package root, vanilla voice to `/core`, and chat to `/chat` + `/chat/react`.
+
+## Install
+
+```bash
+npm install @pinecall/web
+# React is a peer dep — only needed for the widget + chat/react entries
+npm install react react-dom
+```
+
+## Entry points
+
+| Import | What | Needs React |
+|--------|------|-------------|
+| `@pinecall/web` | React widgets — `VoiceWidget`, `ContactHub`, `ChatView`, `useVoice`, `useVoiceSession`, presets | ✅ |
+| `@pinecall/web/core` | `VoiceSession` — framework-agnostic WebRTC voice client | ❌ |
+| `@pinecall/web/chat` | `ChatSession` — framework-agnostic text chat client | ❌ |
+| `@pinecall/web/chat/react` | `usePinecallChat` — React hook over `ChatSession` | ✅ |
 
 ## Quick Start
 
-### React (Widget)
-
-```bash
-npm install @pinecall/voice-widget
-```
+### React widget
 
 ```tsx
-import { VoiceWidget } from "@pinecall/voice-widget";
+import { VoiceWidget } from "@pinecall/web";
 
 <VoiceWidget agent="mara" name="Mara" preset="midnight" />
 ```
 
-### Any Framework (Core)
-
-```bash
-npm install @pinecall/voice-core
-```
+### Vanilla voice (any framework)
 
 ```ts
-import { VoiceSession } from "@pinecall/voice-core";
+import { VoiceSession } from "@pinecall/web/core";
 
 const session = new VoiceSession({ agent: "mara" });
 session.subscribe(() => console.log(session.getState()));
 await session.connect();
 ```
 
+### Chat hook
+
+```tsx
+import { usePinecallChat } from "@pinecall/web/chat/react";
+
+const chat = usePinecallChat({ agent: "florencia" });
+```
+
 ## Structure
 
 ```
-pinecall-voice/
-├── packages/
-│   ├── core/           @pinecall/voice-core — VoiceSession class, types, events
-│   └── widget/         @pinecall/voice-widget — React component, hook, presets, CSS
-├── examples/
-│   └── react/          Demo app with preset switcher
-├── .changeset/         Versioning & changelog
-├── pnpm-workspace.yaml
-└── tsconfig.base.json
+web/
+├── src/
+│   ├── index.ts        @pinecall/web        — React widgets barrel
+│   ├── core/           @pinecall/web/core   — VoiceSession (vanilla)
+│   ├── chat/           @pinecall/web/chat[/react] — ChatSession + React hook
+│   └── widget/         React components (VoiceWidget, ContactHub, ChatView…)
+├── docs/               diagrams + legacy changelogs
+├── examples/react/     Demo app with preset switcher
+├── tsup.config.ts      Build (4 entries → ESM + CJS + DTS)
+└── tsconfig.json
 ```
 
 ## Development
 
 ```bash
-# Install everything
 pnpm install
-
-# Build all packages
-pnpm build
-
-# Typecheck all packages
+pnpm build       # build all 4 entries (ESM + CJS + DTS)
+pnpm dev         # tsup watch
 pnpm typecheck
-
-# Run the example app
-pnpm dev:example
-
-# Watch mode (per-package)
-cd packages/core && pnpm dev
-cd packages/widget && pnpm dev
 ```
 
 ## Publishing
 
-Uses [Changesets](https://github.com/changesets/changesets) for versioning.
-
 ```bash
-# 1. Create a changeset describing your change
-pnpm changeset
-
-# 2. Apply versions + generate changelogs
-pnpm version-packages
-
-# 3. Build + publish
-pnpm release
+npm version <patch|minor|major>
+pnpm release     # build + npm publish
 ```
 
 ## Widget Theme & Orb States

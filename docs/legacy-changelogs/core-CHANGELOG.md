@@ -1,0 +1,44 @@
+# @pinecall/voice-core
+
+## 0.2.9 — 2026-06-09
+
+### Added
+- Added `"system"` to `TranscriptMessage` roles.
+- Added `toolCallId` to `TranscriptMessage` to track tool call lifecycle.
+- `VoiceSession` now automatically inserts inline system messages into the transcript when tool calls begin and finish.
+
+## 0.2.8
+
+### Changed
+- Minor internal fixes.
+
+## 0.2.7
+
+### Changed
+
+- Replaced README with concise npm-facing version pointing to [docs.pinecall.io](https://docs.pinecall.io/docs/voice-core/overview).
+
+## 0.2.0
+
+### Minor Changes
+
+- ### Multi-language support
+
+  **@pinecall/voice-core**
+
+  - Added `config` and `metadata` fields to `VoiceSessionOptions` — sent in the WebRTC offer body for per-session overrides (voice, STT, language, greeting).
+  - Added `configure(config)` method for mid-call config changes via DataChannel (language/voice/STT hot-swap).
+  - Added `updateOptions(patch)` method for pre-connect config updates.
+
+  **@pinecall/voice-widget**
+
+  - Added `languages` prop — a `Record<string, LanguagePreset>` defining per-language voice, STT, turn detection, and greeting presets.
+  - Added `defaultLanguage` prop to set the initial language selection.
+  - Added `config` and `metadata` props for session-level overrides.
+  - Added `onLanguageChange` callback fired when the user selects a language.
+  - New language pill bar UI: hidden by default, appears on hover, always visible during active calls.
+  - Glassmorphic pill design with smooth fade/slide transitions.
+  - Language changes pre-call update the session config; mid-call changes are sent via DataChannel.
+  - `LanguagePreset.stt` and `turnDetection` now accept string shortcuts or full config objects.
+  - Widget dependency on `@pinecall/voice-core` changed from `^0.1.2` to `workspace:*`.
+  - Exported `LanguagePreset` type from package index.

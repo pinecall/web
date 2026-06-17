@@ -1,4 +1,4 @@
-import type { SessionStatus, ToolUI } from "@pinecall/voice-core";
+import type { SessionStatus, ToolUI } from "../core";
 
 /**
  * Theme overrides for the Voice Widget.

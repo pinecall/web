@@ -3,7 +3,7 @@ import { t } from "./locales.js";
 import { HUB_CSS } from "./hub-styles.js";
 import { CHAT_VIEW_CSS } from "./hub-chat-styles.js";
 import { ChatView } from "./ChatView.js";
-import type { TranscriptMessage } from "@pinecall/voice-core";
+import type { TranscriptMessage } from "../core";
 import type { AgentChannel, LocaleStrings, ChatConfig } from "./types.js";
 
 // ── Call Me state (lifted to VoiceWidget) ─────────────────────────
