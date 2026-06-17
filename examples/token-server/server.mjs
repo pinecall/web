@@ -29,6 +29,8 @@ if (!apiKey) {
 
 const pc = new Pinecall({ apiKey });
 
+const GREETING = "Hi! I'm the Pinecall demo. How can I help?";
+
 // A simple voice-only demo agent. allowedOrigins is a dev fallback; the real
 // security here is the token minted server-side below.
 const agent = pc.agent("web-orb-demo", {
@@ -37,8 +39,18 @@ const agent = pc.agent("web-orb-demo", {
   voice: "elevenlabs/sarah",
   stt: "deepgram/flux",
   language: "en",
-  greeting: "Hi! I'm the Pinecall demo. How can I help?",
+  greeting: GREETING, // declarative (server-side) greeting
   allowedOrigins: ["http://localhost:*"],
+});
+
+// Belt-and-suspenders for WebRTC: if the declarative greeting didn't fire,
+// speak it from our connected process on call.started. The log tells us
+// whether the event reaches us at all.
+agent.on("call.started", (call) => {
+  console.log(`  ▷ call.started — transport=${call.transport} direction=${call.direction} id=${call.id}`);
+});
+agent.on("call.ended", (call, reason) => {
+  console.log(`  ▷ call.ended — ${reason}`);
 });
 
 const TYPES = {

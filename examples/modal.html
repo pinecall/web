@@ -33,6 +33,10 @@
       <label>preset
         <select id="preset"><option>dark</option><option>midnight</option><option>aurora</option><option>sunset</option><option>light</option></select>
       </label>
+      <label>visual
+        <select id="visual"><option value="wave">wave</option><option value="orb">orb</option></select>
+      </label>
+      <label>magenta <input type="checkbox" id="magenta" checked /></label>
       <button class="action" id="open">Open call</button>
     </div>
 
@@ -57,6 +61,11 @@
         m.setAttribute("agent", document.getElementById("agent").value.trim());
         m.setAttribute("name", document.getElementById("name").value.trim());
         m.setAttribute("preset", document.getElementById("preset").value);
+        m.setAttribute("visual", document.getElementById("visual").value);
+        // Pinecall magenta accent (#cd58b2) → tints the card + waveform via theme
+        m.theme = document.getElementById("magenta").checked ? { colorAccent: "205, 88, 178" } : undefined;
+        // tell the modal the STT so it can show "transcribing · Deepgram"
+        m.config = { stt: "deepgram/flux" };
         m.tokenProvider = async () => {
           const r = await fetch(ORIGIN + "/api/token");
           if (!r.ok) throw new Error("token endpoint " + r.status);
@@ -65,7 +74,8 @@
         m.addEventListener("pinecall:status", (e) => log("status: " + e.detail));
       };
       apply();
-      document.getElementById("preset").addEventListener("change", apply);
+      ["preset", "visual", "magenta"].forEach((id) =>
+        document.getElementById(id).addEventListener("change", apply));
       document.getElementById("open").addEventListener("click", () => { apply(); m.open(); });
     </script>
   </body>
