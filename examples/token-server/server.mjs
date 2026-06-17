@@ -182,7 +182,7 @@ const server = createServer(async (req, res) => {
     }
 
     // ── Static files (rooted at the webrtc repo) ──
-    let pathname = url.pathname === "/" ? "/examples/orb.html" : url.pathname;
+    let pathname = url.pathname === "/" ? "/examples/index.html" : url.pathname;
     const filePath = normalize(join(ROOT, pathname));
     if (!filePath.startsWith(ROOT)) return send(res, 403, "Forbidden"); // path traversal guard
 

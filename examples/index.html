@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@pinecall/web — Web Components demo</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0; min-height: 100vh; box-sizing: border-box;
+        background: radial-gradient(circle at 25% 15%, #16131d, #0a090d 60%);
+        color: #e8e4f0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        padding: 40px; display: flex; flex-direction: column; gap: 24px;
+      }
+      h1 { font-size: 20px; font-weight: 700; margin: 0; }
+      h1 small { font-weight: 400; color: #9a96a8; font-size: 14px; }
+      .bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 14px 16px; background: #14121b; border: 1px solid #28242f; border-radius: 14px; }
+      label { font-size: 13px; color: #cfc9da; display: inline-flex; gap: 6px; align-items: center; }
+      input[type=text], select { background:#1c1925; color:#e8e4f0; border:1px solid #34303d; border-radius:8px; padding:7px 10px; font-size:13px; }
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+      .card { background: #14121b; border: 1px solid #28242f; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+      .card h2 { font-size: 15px; margin: 0; display: flex; align-items: center; gap: 8px; }
+      .card .tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #cd58b2; }
+      .card p { margin: 0; font-size: 13px; line-height: 1.55; color: #9a96a8; }
+      .card .opts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      button.go { margin-top: auto; background: #cd58b2; color: #fff; border: 0; border-radius: 10px; padding: 10px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+      button.go:hover { background: #b94a9f; }
+      #log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background:#100e16; border:1px solid #28242f; border-radius: 12px; padding: 12px; max-height: 200px; overflow: auto; white-space: pre-wrap; color: #b9b3c7; }
+      code { color: #cdb6e8; }
+    </style>
+  </head>
+  <body>
+    <h1>@pinecall/web <small>— framework-agnostic Web Components (weather demo agent)</small></h1>
+
+    <div class="bar">
+      <label>agent <input id="agent" type="text" value="web-orb-demo" /></label>
+      <label>name <input id="name" type="text" value="Mara" /></label>
+      <label>preset
+        <select id="preset"><option>dark</option><option>midnight</option><option>aurora</option><option>sunset</option><option>light</option></select>
+      </label>
+      <label><input type="checkbox" id="magenta" checked /> magenta</label>
+    </div>
+
+    <div class="cards">
+      <!-- 1 · ORB -->
+      <div class="card">
+        <h2><span class="tag">①</span> &lt;pinecall-orb&gt;</h2>
+        <p>Voice orb launcher (bottom-right). <code>opens</code> decides what a click does.</p>
+        <div class="opts">
+          <label>opens
+            <select id="orbOpens"><option value="inline">inline</option><option value="modal">modal</option><option value="chat">chat</option></select>
+          </label>
+        </div>
+        <button class="go" id="goOrb">Mount orb</button>
+      </div>
+
+      <!-- 2 · MODAL -->
+      <div class="card">
+        <h2><span class="tag">②</span> &lt;pinecall-modal&gt;</h2>
+        <p>Glass call modal. <code>visual="wave"</code> uses real audio metrics; keyboard button → live transcript + text-during-call.</p>
+        <div class="opts">
+          <label>visual
+            <select id="modalVisual"><option value="wave">wave</option><option value="orb">orb</option></select>
+          </label>
+        </div>
+        <button class="go" id="goModal">Open modal</button>
+      </div>
+
+      <!-- 3 · CHATBOX -->
+      <div class="card">
+        <h2><span class="tag">③</span> &lt;pinecall-chat&gt;</h2>
+        <p>Docked chatbox. Text-first; the call button escalates to a WebRTC voice call (conversation continues).</p>
+        <div class="opts">
+          <label><input type="checkbox" id="chatAutocall" /> auto-call</label>
+        </div>
+        <button class="go" id="goChat">Open chatbox</button>
+      </div>
+    </div>
+
+    <div id="log"></div>
+
+    <script type="module">
+      const log = (m) => { const el = document.getElementById("log"); el.textContent += m + "\n"; el.scrollTop = el.scrollHeight; };
+      window.addEventListener("error", (e) => log("❌ " + (e.message || e.error)));
+      window.addEventListener("unhandledrejection", (e) => log("❌ " + e.reason));
+      const ORIGIN = location.protocol.startsWith("http") ? location.origin : "http://localhost:5050";
+
+      try {
+        await Promise.all([
+          import(ORIGIN + "/dist/orb/index.js"),
+          import(ORIGIN + "/dist/modal/index.js"),
+          import(ORIGIN + "/dist/chatbox/index.js"),
+        ]);
+        log("✅ modules loaded — orb/modal/chat registered");
+      } catch (e) { log("❌ import — " + e); }
+
+      const $ = (id) => document.getElementById(id);
+
+      // Shared config: attrs + theme + channel-aware tokenProvider + event logging.
+      const conf = (el) => {
+        el.setAttribute("agent", $("agent").value.trim());
+        el.setAttribute("name", $("name").value.trim());
+        el.setAttribute("preset", $("preset").value);
+        if ($("magenta").checked) el.theme = { colorAccent: "205, 88, 178" };
+        el.config = { stt: "deepgram/flux" };
+        // orb/modal call tokenProvider() with no arg → webrtc; chatbox passes "chat"|"webrtc"
+        el.tokenProvider = async (channel) => {
+          const r = await fetch(ORIGIN + (channel === "chat" ? "/api/chat-token" : "/api/token"));
+          if (!r.ok) throw new Error("token " + r.status);
+          return r.json();
+        };
+        el.addEventListener("pinecall:status", (e) => log(`[${el.tagName.toLowerCase()}] status: ${e.detail}`));
+        let last = "";
+        el.addEventListener("pinecall:transcript", (e) => {
+          const m = (e.detail || []).at(-1);
+          if (!m || !m.text || m.isInterim || m.isStreaming) return;
+          const key = m.id + ":" + m.text;
+          if (key === last) return; last = key;
+          log(`  ${m.role}: ${m.text}`);
+        });
+        return el;
+      };
+
+      let orbEl, modalEl, chatEl;
+
+      $("goOrb").addEventListener("click", () => {
+        orbEl?.remove();
+        orbEl = conf(document.createElement("pinecall-orb"));
+        orbEl.setAttribute("opens", $("orbOpens").value);
+        document.body.appendChild(orbEl);
+        log(`mounted <pinecall-orb opens=${$("orbOpens").value}> — click the orb (bottom-right)`);
+      });
+
+      $("goModal").addEventListener("click", () => {
+        modalEl?.remove();
+        modalEl = conf(document.createElement("pinecall-modal"));
+        modalEl.setAttribute("visual", $("modalVisual").value);
+        document.body.appendChild(modalEl);
+        modalEl.open();
+        log(`opened <pinecall-modal visual=${$("modalVisual").value}>`);
+      });
+
+      $("goChat").addEventListener("click", () => {
+        chatEl?.remove();
+        chatEl = conf(document.createElement("pinecall-chat"));
+        if ($("chatAutocall").checked) chatEl.setAttribute("auto-call", "");
+        chatEl.setAttribute("greeting", `Hi! I'm ${$("name").value.trim()}. Ask me the weather in any city.`);
+        document.body.appendChild(chatEl);
+        chatEl.open();
+        log("opened <pinecall-chat>");
+      });
+    </script>
+  </body>
+</html>

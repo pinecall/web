@@ -2,6 +2,15 @@
 
 All notable changes to `@pinecall/web` are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.2] - 2026-06-17
+
+### Changed — Compact, modern redesign of orb + modal
+
+CSS-only refinement. **No API changes** — same props, attributes, events, theming tokens (`--vw-*` / `--pm-*`).
+
+- **`<pinecall-orb>` launcher** — 64→52px orb, tighter breathing rings, subtler shadow, smaller label/bubble/typing dots, anchor 28→20px (14px on mobile).
+- **`<pinecall-modal>` call card** — narrower card (560→420px, radius 28→22px), smaller header (avatar 44→32px), orb 150→96px, idle waveform 30→22px, wave-mode waveform 96→64px, controls 56→44px, FAB 60→52px, tighter paddings throughout while keeping the wave-mode stepper (`Ring · Listen · Think · Speak`) well-spaced.
+
 ## [0.3.1] - 2026-06-17
 
 ### Added
