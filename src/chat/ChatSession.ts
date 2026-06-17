@@ -233,6 +233,39 @@ export class ChatSession extends EventTarget {
         });
         break;
 
+      case "chat.tool_call":
+      case "llm.chat.tool_call": {
+        // Show a minimalist tool indicator (parity with VoiceSession).
+        const calls = (d.tool_calls ?? []) as Array<{ id: string; name: string }>;
+        if (calls.length) {
+          this.setState({ typing: true });
+          this.setMessages((prev) => [
+            ...prev,
+            ...calls.map((tc) => ({
+              id: ++this.msgCounter,
+              role: "system" as const,
+              text: `🔧 Using ${tc.name}…`,
+              toolCallId: tc.id,
+            })),
+          ]);
+        }
+        break;
+      }
+
+      case "chat.tool_result":
+      case "llm.chat.tool_result": {
+        if (d.tool_call_id) {
+          this.setMessages((prev) =>
+            prev.map((m) => {
+              if (m.toolCallId !== d.tool_call_id) return m;
+              const name = (d.name || m.text.match(/Using (\S+)/)?.[1] || "Tool").replace(/…$/, "");
+              return { ...m, text: `✓ ${name}` };
+            }),
+          );
+        }
+        break;
+      }
+
       case "chat.error":
       case "llm.chat.error":
         this.setState({

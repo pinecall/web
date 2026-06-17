@@ -18,8 +18,17 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, normalize, extname } from "node:path";
 import { Pinecall, tool } from "@pinecall/sdk";
 import { z } from "zod";
+import { appendFileSync } from "node:fs";
 
 const PORT = Number(process.env.PORT) || 5050;
+
+// ── Debug logger → /tmp/debug.log (and stdout) ──
+const dbg = (...a) => {
+  const line = `${new Date().toISOString()} ${a.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ")}\n`;
+  try { appendFileSync("/tmp/debug.log", line); } catch { /* ignore */ }
+  console.log("[dbg]", ...a);
+};
+dbg("──── token-server boot ────");
 const ROOT = normalize(join(dirname(fileURLToPath(import.meta.url)), "..", "..")); // webrtc repo root
 
 const apiKey = process.env.PINECALL_API_KEY;
@@ -55,17 +64,25 @@ const getWeather = tool({
   name: "get_weather",
   description: "Get the current weather for a city. ALWAYS call this when the user asks about weather — never guess.",
   schema: z.object({ city: z.string().describe("City name, e.g. 'Tokyo', 'Buenos Aires', 'London'") }),
-  execute: async ({ city }) => {
-    const g = await geocode(city);
-    if (!g) return { error: true, message: `Could not find city "${city}".` };
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=celsius`);
-    const c = (await r.json()).current;
-    const { condition, icon } = decodeWMO(c.weather_code);
-    return {
-      city: g.name, country: g.country, temperature: Math.round(c.temperature_2m),
-      feelsLike: Math.round(c.apparent_temperature), condition, icon,
-      humidity: c.relative_humidity_2m, windSpeed: Math.round(c.wind_speed_10m), unit: "°C",
-    };
+  execute: async ({ city }, call) => {
+    dbg("🔧 get_weather START city=", city, "transport=", call?.transport, "callId=", call?.id);
+    try {
+      const g = await geocode(city);
+      if (!g) { dbg("🔧 get_weather no-geo", city); return { error: true, message: `Could not find city "${city}".` }; }
+      const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&temperature_unit=celsius`);
+      const c = (await r.json()).current;
+      const { condition, icon } = decodeWMO(c.weather_code);
+      const result = {
+        city: g.name, country: g.country, temperature: Math.round(c.temperature_2m),
+        feelsLike: Math.round(c.apparent_temperature), condition, icon,
+        humidity: c.relative_humidity_2m, windSpeed: Math.round(c.wind_speed_10m), unit: "°C",
+      };
+      dbg("🔧 get_weather DONE", result);
+      return result;
+    } catch (e) {
+      dbg("🔧 get_weather ERROR", String(e?.message || e));
+      return { error: true, message: "weather fetch failed" };
+    }
   },
 });
 
@@ -73,7 +90,8 @@ const getForecast = tool({
   name: "get_forecast",
   description: "Get a 5-day weather forecast for a city. Call this for upcoming weather or a specific future day.",
   schema: z.object({ city: z.string().describe("City name, e.g. 'Tokyo', 'Buenos Aires', 'London'") }),
-  execute: async ({ city }) => {
+  execute: async ({ city }, call) => {
+    dbg("🔧 get_forecast START city=", city, "transport=", call?.transport);
     const g = await geocode(city);
     if (!g) return { error: true, message: `Could not find city "${city}".` };
     const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&daily=temperature_2m_max,temperature_2m_min,weather_code&temperature_unit=celsius&forecast_days=5&timezone=auto`);
@@ -118,15 +136,18 @@ For spoken (voice) replies: write numbers and units as words ("thirty three degr
 // speak it from our connected process on call.started. The log tells us
 // whether the event reaches us at all.
 agent.on("call.started", (call) => {
-  console.log(`  ▷ call.started — transport=${call.transport} direction=${call.direction} id=${call.id}`);
+  dbg("▷ call.started", "transport=", call.transport, "dir=", call.direction, "id=", call.id);
 });
 // Text chat does NOT auto-greet (unlike voice) — greet on chat.started.
 agent.on("chat.started", (call) => {
-  console.log(`  ▷ chat.started — id=${call.id}`);
-  call.say(GREETING, { addToHistory: true });
+  dbg("▷ chat.started id=", call.id);
 });
 agent.on("call.ended", (call, reason) => {
-  console.log(`  ▷ call.ended — ${reason}`);
+  dbg("▷ call.ended", "reason=", reason, "id=", call?.id);
+});
+// Did the tool call reach our process at all?
+agent.on("llm.toolCall", (event, call) => {
+  dbg("▷ llm.toolCall", "tools=", (event?.toolCalls ?? []).map((t) => t.name), "callId=", call?.id, "transport=", call?.transport);
 });
 
 const TYPES = {

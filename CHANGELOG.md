@@ -2,7 +2,13 @@
 
 All notable changes to `@pinecall/web` are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.3.0] - 2026-06-17
+## [0.3.1] - 2026-06-17
+
+### Added
+- **`ChatSession` tool indicator** — handles `llm.chat.tool_call` / `llm.chat.tool_result`, adding a minimalist `system` message (`🔧 Using <tool>…` → `✓ <tool>`) to the transcript, matching `VoiceSession`. The chatbox now shows the tool being called in text mode, like voice.
+- **`pinecall:transcript`** event is now dispatched by `<pinecall-modal>` and `<pinecall-chat>` too (previously only `<pinecall-orb>`).
+
+> Note: chat tool **execution** also required a fix in `@pinecall/sdk` (chat tool calls now auto-execute registered tools, like voice).
 
 ### Added — **`<pinecall-chat>` docked chatbox** (`@pinecall/web/chatbox` + `/chatbox/react`)
 

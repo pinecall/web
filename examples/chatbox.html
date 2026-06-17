@@ -62,14 +62,23 @@
         el.setAttribute("greeting", "Hi! I'm " + get("name").value.trim() + ". How can I help?");
         if (get("magenta").checked) el.theme = { colorAccent: "205, 88, 178" };
         // channel-aware: the chatbox calls tokenProvider("chat") for text and
-        // ("webrtc") for voice — one function, the right token per channel.
+        // ("webrtc") for voice; orb/modal call it with no arg → default webrtc.
         el.tokenProvider = async (channel) => {
-          const ep = channel === "webrtc" ? "/api/token" : "/api/chat-token";
+          const ep = channel === "chat" ? "/api/chat-token" : "/api/token";
           const r = await fetch(ORIGIN + ep);
           if (!r.ok) throw new Error("token " + r.status);
           return r.json();
         };
         el.addEventListener("pinecall:status", (e) => log("status: " + e.detail));
+        let lastLogged = "";
+        el.addEventListener("pinecall:transcript", (e) => {
+          const m = (e.detail || []).at(-1);
+          if (!m || !m.text || m.isInterim || m.isStreaming) return; // finals only, no partial spam
+          const key = m.id + ":" + m.text;
+          if (key === lastLogged) return;
+          lastLogged = key;
+          log(`${m.role}: ${m.text}`);
+        });
       };
 
       let chatEl, orbEl;

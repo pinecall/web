@@ -8,12 +8,14 @@ export type ChatStatus = "idle" | "connecting" | "connected" | "error" | "destro
 /** A single message in the conversation. */
 export interface ChatMessage {
   id: number;
-  role: "user" | "bot";
+  role: "user" | "bot" | "system";
   text: string;
   /** Server-assigned message ID (for bot messages). */
   messageId?: string;
   /** True while the bot is still streaming this message. */
   isStreaming?: boolean;
+  /** Tool call ID (for `system` tool-indicator messages). */
+  toolCallId?: string;
 }
 
 /** Full state of a ChatSession (immutable snapshots). */
