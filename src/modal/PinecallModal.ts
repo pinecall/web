@@ -199,6 +199,7 @@ export class PinecallModal extends HTMLElementBase {
     this.applyTheme();
     this.applyVisual();
     this.syncHeader();
+    if (this.hasAttribute("no-fab")) this.fab.hidden = true;
     if (this.hasAttribute("open")) this.open();
   }
   disconnectedCallback() { this.stopWave(); this.teardown(); }
@@ -221,16 +222,18 @@ export class PinecallModal extends HTMLElementBase {
     // auto-start the call when opening (voice channel)
     if (this.status() === "idle") void this.startCall();
     this.render();
+    this.dispatchEvent(new CustomEvent("pinecall:open"));
   }
   close() {
     this.overlay.classList.remove("open");
-    this.fab.hidden = false;
+    this.fab.hidden = this.hasAttribute("no-fab");
     this.stopWave();
     this.teardown();
     this.cardEl.classList.remove("text-mode");
     this.msgEls.clear();
     this.msgsEl.innerHTML = "";
     this.render();
+    this.dispatchEvent(new CustomEvent("pinecall:close"));
   }
 
   /** Toggle between the voice (orb) view and the text/transcript view. */

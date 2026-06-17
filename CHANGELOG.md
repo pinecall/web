@@ -2,6 +2,23 @@
 
 All notable changes to `@pinecall/web` are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-06-17
+
+### Added — **`<pinecall-chat>` docked chatbox** (`@pinecall/web/chatbox` + `/chatbox/react`)
+
+A traditional web-chat Custom Element (launcher bubble → panel with bubbles + input):
+
+- **Text-first** (`ChatSession`) with a **call button to escalate to a WebRTC voice call** (`VoiceSession`) — talk and/or type in one panel.
+- **Conversation continuity** across the text↔voice switch: the visible history is kept (frozen) and the prior transcript is injected into the new session via `setContext`.
+- **Channel-aware `tokenProvider`**: `(channel: "chat" | "webrtc") => {token, server}` — one function mints the right token per transport.
+- `greeting` attribute (client-side first bot bubble — text chat has no server greeting path), `auto-call` (start in a call), `no-call` (pure text).
+- rAF character-by-character reveal of streaming bot text; reconciled bubbles (no flicker); speaker-colored, theme-derived.
+
+### Added — Orb `opens` + lifecycle events
+
+- `<pinecall-orb>` gains `opens="inline" | "modal" | "chat"` — the orb is a launcher that can show inline captions, open a `<pinecall-modal>`, or open a `<pinecall-chat>`. The launched element's FAB is suppressed (`no-fab`) so the orb is the sole launcher.
+- `<pinecall-modal>` / `<pinecall-chat>` dispatch `pinecall:open` / `pinecall:close` and honor a `no-fab` attribute.
+
 ## [0.2.0] - 2026-06-17
 
 ### Added — **Framework-agnostic Web Components**
