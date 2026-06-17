@@ -2,6 +2,26 @@
 
 All notable changes to `@pinecall/web` are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.3] - 2026-06-17
+
+### Added — Chatbox light/alt-palette theming tokens
+
+`<pinecall-chat>` now exposes surface tokens so it can be re-skinned for light or
+non-blue palettes without forking the internals. Previously, user/bot bubbles,
+input field, send button and dividers had hardcoded white-on-dark values that
+broke any non-dark card. Defaults preserve the original look.
+
+New `:host` CSS custom properties:
+- `--pm-divider` — head/inputbar separator
+- `--pm-user-bg` / `--pm-user-text` — user bubble
+- `--pm-bot-bg` / `--pm-bot-text` / `--pm-bot-border` — bot bubble
+- `--pm-input-bg` / `--pm-input-border` — text input
+- `--pm-btn-bg` / `--pm-btn-bg-hover` — mic / call buttons + avatar
+- `--pm-send-bg` / `--pm-send-text` — send button
+- `--pm-typing-dot` — typing indicator dots
+- `--pm-scrollbar` — messages scrollbar
+- `--pm-fab-inset` / `--pm-fab-shadow` / `--pm-panel-shadow` — FAB + panel shadows
+
 ## [0.3.2] - 2026-06-17
 
 ### Changed — Compact, modern redesign of orb + modal
