@@ -72,6 +72,9 @@ export class PinecallChat extends HTMLElementBase {
   private streamEl: (HTMLDivElement & { _target?: string; _shown?: number }) | null = null;
   private revealRaf = 0;
   private greetEl: HTMLDivElement | null = null;
+  private vv: VisualViewport | null = null;
+  private vvHandler: (() => void) | null = null;
+  private vvRaf = 0;
 
   private fab!: HTMLButtonElement;
   private panel!: HTMLDivElement;
@@ -157,6 +160,7 @@ export class PinecallChat extends HTMLElementBase {
   open() {
     this.panel.classList.add("open");
     this.fab.hidden = true;
+    this.attachViewport();
     // text-first unless auto-call → start directly in a voice call
     this.mode = this.hasAttribute("auto-call") ? "voice" : "text";
     const s = this.ensureSession();
@@ -168,6 +172,7 @@ export class PinecallChat extends HTMLElementBase {
   close() {
     this.panel.classList.remove("open");
     this.fab.hidden = this.hasAttribute("no-fab");
+    this.detachViewport();
     this.teardown();
     if (this.revealRaf) cancelAnimationFrame(this.revealRaf);
     this.revealRaf = 0; this.streamEl = null;
@@ -204,6 +209,47 @@ export class PinecallChat extends HTMLElementBase {
     this.unsub?.(); this.unsub = null;
     this.session?.destroy(); this.session = null;
     this.prevStatus = undefined;
+  }
+
+  /**
+   * Size the fixed panel to the *visible* viewport while it's open, so the
+   * input clears the on-screen keyboard on iOS (and Android) with no jump.
+   * Drives --pc-vh / --pc-vtop on the host (they inherit into the shadow tree);
+   * the mobile CSS reads them. Only meaningful on touch/mobile — harmless on
+   * desktop where the panel CSS ignores the vars.
+   */
+  private attachViewport() {
+    if (typeof window === "undefined" || this.vvHandler) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    this.vv = vv;
+    const apply = () => {
+      // "Keyboard open" only when the viewport shrank meaningfully — also
+      // sidesteps the iOS 26 bug where offsetTop fails to reset to 0 on dismiss.
+      const kbOpen = window.innerHeight - vv.height > 120;
+      const h = kbOpen ? vv.height : window.innerHeight;
+      const top = kbOpen ? vv.offsetTop : 0;
+      this.style.setProperty("--pc-vh", `${Math.round(h)}px`);
+      this.style.setProperty("--pc-vtop", `${Math.round(top)}px`);
+      this.msgsEl.scrollTop = this.msgsEl.scrollHeight;
+    };
+    this.vvHandler = () => {
+      cancelAnimationFrame(this.vvRaf);
+      this.vvRaf = requestAnimationFrame(apply);
+    };
+    apply();
+    vv.addEventListener("resize", this.vvHandler);
+    vv.addEventListener("scroll", this.vvHandler);
+  }
+  private detachViewport() {
+    cancelAnimationFrame(this.vvRaf);
+    if (this.vv && this.vvHandler) {
+      this.vv.removeEventListener("resize", this.vvHandler);
+      this.vv.removeEventListener("scroll", this.vvHandler);
+    }
+    this.vv = null; this.vvHandler = null;
+    this.style.removeProperty("--pc-vh");
+    this.style.removeProperty("--pc-vtop");
   }
 
   /** Switch between text chat (ChatSession) and a WebRTC voice call (VoiceSession). */

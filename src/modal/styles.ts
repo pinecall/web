@@ -30,7 +30,7 @@ export const MODAL_CSS = /* css */ `
 
 /* ── Launcher FAB ── */
 .pm-fab {
-  position: fixed; right: 20px; bottom: 20px; z-index: 2147483000;
+  position: var(--pc-position, fixed); right: 20px; bottom: 20px; z-index: 2147483000;
   width: 52px; height: 52px; border-radius: 999px; border: 0; cursor: pointer;
   background: radial-gradient(circle at 30% 28%, rgb(var(--vw-orb-from)), rgb(var(--vw-orb-mid)) 42%, rgb(var(--vw-orb-to)));
   box-shadow: 0 8px 22px -8px rgba(0,0,0,.4), 0 0 0 1px rgba(0,0,0,.05);
@@ -41,7 +41,7 @@ export const MODAL_CSS = /* css */ `
 
 /* ── Overlay + card ── */
 .pm-overlay {
-  position: fixed; inset: 0; z-index: 2147483600; display: none;
+  position: var(--pc-position, fixed); inset: 0; z-index: 2147483600; display: none;
   align-items: center; justify-content: center; padding: 20px;
   background: rgba(8, 10, 16, .42); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }

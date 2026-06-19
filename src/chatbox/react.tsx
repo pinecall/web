@@ -2,8 +2,14 @@
  * @pinecall/web/chatbox/react
  *
  * Thin React wrapper around <pinecall-chat>.
+ *
+ * IMPORTANT: `open` triggers connectedCallback → ensureSession → connect
+ * immediately. Object/function props (tokenProvider etc.) must be set BEFORE
+ * the element enters the DOM, otherwise ensureSession() reads undefined. We
+ * use a callback ref to eagerly set them at attach time, and defer `open` to
+ * a useLayoutEffect so the properties are guaranteed set first.
  */
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { definePinecallChat, type PinecallChat } from "./index";
 import type { SessionStatus } from "../core";
 import type { VoiceWidgetTheme, VoiceWidgetPreset } from "../widget/types";
@@ -33,24 +39,50 @@ export function ChatBox({
   agent, server, name, preset, avatar, autoCall, noCall, greeting, open,
   config, metadata, theme, tokenProvider, onStatus,
 }: ChatBoxProps) {
-  const ref = useRef<PinecallChat | null>(null);
+  const elRef = useRef<PinecallChat | null>(null);
 
   useEffect(() => { definePinecallChat(); }, []);
-  useEffect(() => { if (ref.current) ref.current.config = config; }, [config]);
-  useEffect(() => { if (ref.current) ref.current.metadata = metadata; }, [metadata]);
-  useEffect(() => { if (ref.current) ref.current.theme = theme; }, [theme]);
-  useEffect(() => { if (ref.current) ref.current.tokenProvider = tokenProvider; }, [tokenProvider]);
+
+  // Callback ref: set function/object properties eagerly when the element is
+  // first attached — BEFORE connectedCallback fires. This prevents the race
+  // where `open` → ensureSession() → connect() reads tokenProvider as undefined.
+  const setRef = useCallback((el: HTMLElement | null) => {
+    const chat = el as PinecallChat | null;
+    elRef.current = chat;
+    if (chat) {
+      chat.tokenProvider = tokenProvider;
+      chat.config = config;
+      chat.metadata = metadata;
+      chat.theme = theme;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — initial set only; useEffects handle updates
+
+  // Subsequent updates (after mount) go through useEffect as before.
+  useEffect(() => { if (elRef.current) elRef.current.config = config; }, [config]);
+  useEffect(() => { if (elRef.current) elRef.current.metadata = metadata; }, [metadata]);
+  useEffect(() => { if (elRef.current) elRef.current.theme = theme; }, [theme]);
+  useEffect(() => { if (elRef.current) elRef.current.tokenProvider = tokenProvider; }, [tokenProvider]);
+
+  // Defer `open` so it runs after the callback ref has set properties.
+  useLayoutEffect(() => {
+    const el = elRef.current;
+    if (!el) return;
+    if (open) el.open();
+  }, [open]);
+
   useEffect(() => {
-    const el = ref.current;
+    const el = elRef.current;
     if (!el) return;
     const onS = (e: Event) => onStatus?.((e as CustomEvent).detail);
     el.addEventListener("pinecall:status", onS);
     return () => el.removeEventListener("pinecall:status", onS);
   }, [onStatus]);
 
+  // Render WITHOUT the `open` attribute — we call .open() imperatively above.
   return (
     <pinecall-chat
-      ref={ref as React.Ref<HTMLElement>}
+      ref={setRef as React.Ref<HTMLElement>}
       agent={agent}
       server={server}
       name={name}
@@ -59,7 +91,6 @@ export function ChatBox({
       greeting={greeting}
       {...(autoCall ? { "auto-call": "" } : {})}
       {...(noCall ? { "no-call": "" } : {})}
-      {...(open ? { open: "" } : {})}
     />
   );
 }
@@ -74,3 +105,4 @@ declare global {
     }
   }
 }
+

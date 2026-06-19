@@ -44,7 +44,7 @@ export const CHATBOX_CSS = /* css */ `
 
 /* ── Launcher bubble ── */
 .pc-fab {
-  position: fixed; right: 28px; bottom: 28px; z-index: 2147483000;
+  position: var(--pc-position, fixed); right: 28px; bottom: 28px; z-index: 2147483000;
   width: 60px; height: 60px; border-radius: 999px; border: 0; cursor: pointer;
   display: flex; align-items: center; justify-content: center; color: #fff;
   background: linear-gradient(150deg, var(--pm-card-from), var(--pm-card-to));
@@ -57,8 +57,8 @@ export const CHATBOX_CSS = /* css */ `
 
 /* ── Panel ── */
 .pc-panel {
-  position: fixed; right: 28px; bottom: 28px; z-index: 2147483400;
-  width: min(380px, calc(100vw - 32px)); height: min(560px, calc(100vh - 48px));
+  position: var(--pc-position, fixed); right: 28px; bottom: 28px; z-index: 2147483400;
+  width: min(380px, calc(100vw - 32px)); height: min(var(--pc-max-height, 560px), calc(100vh - 48px));
   display: none; flex-direction: column; overflow: hidden;
   border-radius: 22px; color: var(--pm-text);
   background: linear-gradient(160deg, var(--pm-card-from), var(--pm-card-to));
@@ -112,4 +112,30 @@ export const CHATBOX_CSS = /* css */ `
 .pc-call.hangup { background: rgb(var(--vw-color-speaking)); color: #fff; }
 
 @media (prefers-reduced-motion: reduce) { .pc-msg, .pc-typing span { animation: none !important; } }
+
+/* ── Mobile: full-screen, keyboard-aware ──────────────────────────────
+   A floating widget is a fixed overlay on someone else's page, so we can't
+   use document-flow like a full-page chat. Instead the panel is sized to the
+   *visible* viewport via --pc-vh / --pc-vtop, which <pinecall-chat> drives
+   from window.visualViewport — so the input always clears the iOS keyboard
+   with no jump. Defaults (no JS / no keyboard) = full screen. */
+@media (max-width: 640px) {
+  .pc-panel {
+    top: var(--pc-vtop, 0px);
+    right: 0; bottom: auto; left: 0;
+    width: 100vw;
+    height: var(--pc-vh, 100dvh);
+    max-height: none;
+    border-radius: 0;
+  }
+  .pc-head { padding-top: max(14px, env(safe-area-inset-top)); }
+  /* 16px keeps iOS Safari from zooming the page when the input is focused. */
+  .pc-input { font-size: 16px; padding: 12px 16px; }
+  .pc-inputbar { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .pc-mic, .pc-send, .pc-call { width: 44px; height: 44px; }
+  .pc-fab {
+    right: max(20px, env(safe-area-inset-right));
+    bottom: max(20px, env(safe-area-inset-bottom));
+  }
+}
 `;

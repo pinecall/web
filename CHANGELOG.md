@@ -2,6 +2,30 @@
 
 All notable changes to `@pinecall/web` are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.8] - 2026-06-19
+
+### Fixed — `<pinecall-chat>` mobile keyboard handling (iOS + Android)
+
+The docked chatbox is a `position:fixed` overlay, so on iOS Safari the
+on-screen keyboard (which does **not** shrink the layout viewport) covered the
+input, and the `14px` input triggered focus-zoom.
+
+On mobile the panel now goes full-screen and tracks `window.visualViewport`
+while open — `PinecallChat` sets `--pc-vh` / `--pc-vtop` on the host (height +
+offsetTop; "keyboard open" only when `innerHeight - vv.height > 120`, which also
+dodges the iOS 26 offsetTop-reset bug), and the mobile CSS reads them so the
+input always clears the keyboard with no jump. Plus `16px` input (no zoom),
+safe-area insets on header/input, and bigger touch targets.
+
+## [0.3.7] - 2026-06-18
+
+### Added — `--pc-position` for inline-embeddable widgets
+
+`<pinecall-chat>` / `<pinecall-modal>` FAB + panel/overlay now read
+`position: var(--pc-position, fixed)`, so a host can set `--pc-position: absolute`
+to embed the widget inside a positioned container instead of floating it over the
+whole viewport (React wrappers expose the corresponding wiring).
+
 ## [0.3.5] - 2026-06-17
 
 ### Fixed — `<pinecall-chat>` hangup now stops audio immediately
