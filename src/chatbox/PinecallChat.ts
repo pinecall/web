@@ -72,11 +72,12 @@ export class PinecallChat extends HTMLElementBase {
   private streamEl: (HTMLDivElement & { _target?: string; _shown?: number }) | null = null;
   private revealRaf = 0;
   private greetEl: HTMLDivElement | null = null;
-  private vv: VisualViewport | null = null;
-  private vvHandler: (() => void) | null = null;
-  private vvRaf = 0;
+  private fsActive = false;
+  private fsPlaceholder: Comment | null = null;
+  private fsScrollY = 0;
 
   private fab!: HTMLButtonElement;
+  private screen!: HTMLDivElement;
   private panel!: HTMLDivElement;
   private msgsEl!: HTMLDivElement;
   private input!: HTMLInputElement;
@@ -94,6 +95,7 @@ export class PinecallChat extends HTMLElementBase {
     const c = document.createElement("div");
     c.innerHTML = `
       <button class="pc-fab" aria-label="Open chat">${ICONS.chat}</button>
+      <div class="pc-screen">
       <div class="pc-panel" role="dialog" aria-modal="false">
         <div class="pc-head">
           <div class="pc-avatar">${ICONS.chat}</div>
@@ -107,10 +109,12 @@ export class PinecallChat extends HTMLElementBase {
           <input class="pc-input" type="text" placeholder="Type a message…" />
           <button class="pc-send" aria-label="Send">${ICONS.send}</button>
         </div>
+      </div>
       </div>`;
     root.append(style, c);
 
     this.fab = c.querySelector(".pc-fab")!;
+    this.screen = c.querySelector(".pc-screen")!;
     this.panel = c.querySelector(".pc-panel")!;
     this.msgsEl = c.querySelector(".pc-msgs")!;
     this.input = c.querySelector(".pc-input")!;
@@ -148,7 +152,7 @@ export class PinecallChat extends HTMLElementBase {
     if (this.hasAttribute("no-fab")) this.fab.hidden = true;
     if (this.hasAttribute("open")) this.open();
   }
-  disconnectedCallback() { this.teardown(); }
+  disconnectedCallback() { this.exitFullscreen(); this.teardown(); }
   attributeChangedCallback(name: string) {
     if (name === "preset") this.applyTheme();
     if (name === "name" || name === "avatar") this.syncHeader();
@@ -158,9 +162,10 @@ export class PinecallChat extends HTMLElementBase {
 
   // ── public API ──
   open() {
+    this.screen.classList.add("open");
     this.panel.classList.add("open");
     this.fab.hidden = true;
-    this.attachViewport();
+    this.enterFullscreen();
     // text-first unless auto-call → start directly in a voice call
     this.mode = this.hasAttribute("auto-call") ? "voice" : "text";
     const s = this.ensureSession();
@@ -170,9 +175,10 @@ export class PinecallChat extends HTMLElementBase {
     this.dispatchEvent(new CustomEvent("pinecall:open"));
   }
   close() {
+    this.screen.classList.remove("open");
     this.panel.classList.remove("open");
     this.fab.hidden = this.hasAttribute("no-fab");
-    this.detachViewport();
+    this.exitFullscreen();
     this.teardown();
     if (this.revealRaf) cancelAnimationFrame(this.revealRaf);
     this.revealRaf = 0; this.streamEl = null;
@@ -212,44 +218,58 @@ export class PinecallChat extends HTMLElementBase {
   }
 
   /**
-   * Size the fixed panel to the *visible* viewport while it's open, so the
-   * input clears the on-screen keyboard on iOS (and Android) with no jump.
-   * Drives --pc-vh / --pc-vtop on the host (they inherit into the shadow tree);
-   * the mobile CSS reads them. Only meaningful on touch/mobile — harmless on
-   * desktop where the panel CSS ignores the vars.
+   * Full-PAGE takeover on mobile — the ONLY way to match a dedicated full-page
+   * chat (like the landing `/ask`): the chat must own the real document so iOS
+   * handles the keyboard *natively* (it scrolls the focused input above the
+   * keyboard with no jump). A position:fixed overlay can never do this, because
+   * only the document scroll gets iOS's native keyboard avoidance.
+   *
+   * So on open we MOVE the host element into <body>, hide everything else on the
+   * page (injected light-DOM style), and the shadow panel becomes a normal-flow
+   * `min-height:100dvh` element with a sticky composer + sticky header. No fixed
+   * positioning, no visualViewport JS — identical mechanics to `/ask`. A comment
+   * placeholder remembers the original slot so close() puts it back exactly.
    */
-  private attachViewport() {
-    if (typeof window === "undefined" || this.vvHandler) return;
-    const vv = window.visualViewport;
-    if (!vv) return;
-    this.vv = vv;
-    const apply = () => {
-      // "Keyboard open" only when the viewport shrank meaningfully — also
-      // sidesteps the iOS 26 bug where offsetTop fails to reset to 0 on dismiss.
-      const kbOpen = window.innerHeight - vv.height > 120;
-      const h = kbOpen ? vv.height : window.innerHeight;
-      const top = kbOpen ? vv.offsetTop : 0;
-      this.style.setProperty("--pc-vh", `${Math.round(h)}px`);
-      this.style.setProperty("--pc-vtop", `${Math.round(top)}px`);
-      this.msgsEl.scrollTop = this.msgsEl.scrollHeight;
-    };
-    this.vvHandler = () => {
-      cancelAnimationFrame(this.vvRaf);
-      this.vvRaf = requestAnimationFrame(apply);
-    };
-    apply();
-    vv.addEventListener("resize", this.vvHandler);
-    vv.addEventListener("scroll", this.vvHandler);
+  private enterFullscreen() {
+    if (typeof document === "undefined" || this.fsActive) return;
+    if (!window.matchMedia?.("(max-width: 640px)").matches) return;
+    this.fsActive = true;
+    this.fsScrollY = window.scrollY || 0;
+    PinecallChat.injectFsStyle();
+    this.fsPlaceholder = document.createComment("pinecall-chat");
+    this.parentNode?.insertBefore(this.fsPlaceholder, this);
+    document.body.appendChild(this);
+    this.setAttribute("fs", "");
+    document.documentElement.classList.add("pc-chat-fs");
+    window.scrollTo(0, 0);
   }
-  private detachViewport() {
-    cancelAnimationFrame(this.vvRaf);
-    if (this.vv && this.vvHandler) {
-      this.vv.removeEventListener("resize", this.vvHandler);
-      this.vv.removeEventListener("scroll", this.vvHandler);
+  private exitFullscreen() {
+    if (!this.fsActive) return;
+    this.fsActive = false;
+    this.removeAttribute("fs");
+    document.documentElement.classList.remove("pc-chat-fs");
+    // Put the element back exactly where it was (keeps React's tree valid).
+    if (this.fsPlaceholder?.parentNode) {
+      this.fsPlaceholder.parentNode.insertBefore(this, this.fsPlaceholder);
+      this.fsPlaceholder.remove();
     }
-    this.vv = null; this.vvHandler = null;
-    this.style.removeProperty("--pc-vh");
-    this.style.removeProperty("--pc-vtop");
+    this.fsPlaceholder = null;
+    window.scrollTo(0, this.fsScrollY);
+  }
+
+  /** One global light-DOM style that hides the host page during fullscreen chat. */
+  private static fsStyleInjected = false;
+  private static injectFsStyle() {
+    if (PinecallChat.fsStyleInjected || typeof document === "undefined") return;
+    PinecallChat.fsStyleInjected = true;
+    const s = document.createElement("style");
+    s.id = "pinecall-chat-fs";
+    s.textContent =
+      "html.pc-chat-fs,html.pc-chat-fs body{margin:0!important;padding:0!important;" +
+      "height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important;}" +
+      "html.pc-chat-fs body>*:not(pinecall-chat){display:none!important;}" +
+      "html.pc-chat-fs body>pinecall-chat{display:block!important;}";
+    document.head.appendChild(s);
   }
 
   /** Switch between text chat (ChatSession) and a WebRTC voice call (VoiceSession). */

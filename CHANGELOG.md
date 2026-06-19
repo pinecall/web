@@ -2,6 +2,19 @@
 
 All notable changes to `@pinecall/web` are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.9] - 2026-06-19
+
+### Changed — `<pinecall-chat>` mobile is now a true full-page chat (document-flow)
+
+0.3.8's visualViewport sizing of the fixed panel still jittered on iOS (a
+fixed overlay never gets iOS's *native* keyboard avoidance — only the document
+scroll does). On mobile the chatbox now does a full-page takeover: the host is
+moved into `<body>`, the rest of the page is hidden, and the panel becomes a
+normal-flow `min-height:100dvh` element with a `position:sticky` composer +
+header. The document scrolls, so iOS lifts the focused input natively with no
+jump — identical mechanics to a dedicated full-page chat. Restored exactly on
+close. No more visualViewport JS / fixed-overlay sizing.
+
 ## [0.3.8] - 2026-06-19
 
 ### Fixed — `<pinecall-chat>` mobile keyboard handling (iOS + Android)

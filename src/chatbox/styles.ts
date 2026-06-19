@@ -55,6 +55,13 @@ export const CHATBOX_CSS = /* css */ `
 .pc-fab svg { width: 26px; height: 26px; stroke: currentColor; fill: none; stroke-width: 2; }
 .pc-fab[hidden] { display: none; }
 
+/* ── Screen wrapper ──
+   Desktop: transparent passthrough (display:contents) so .pc-panel keeps its
+   original fixed bottom-right docking. Mobile (see @media below): becomes a
+   fixed, opaque, full-screen clip layer that the absolute .pc-panel rides
+   inside — the absolute-in-fixed trick that stops the iOS keyboard jump. */
+.pc-screen { display: contents; }
+
 /* ── Panel ── */
 .pc-panel {
   position: var(--pc-position, fixed); right: 28px; bottom: 28px; z-index: 2147483400;
@@ -113,29 +120,41 @@ export const CHATBOX_CSS = /* css */ `
 
 @media (prefers-reduced-motion: reduce) { .pc-msg, .pc-typing span { animation: none !important; } }
 
-/* ── Mobile: full-screen, keyboard-aware ──────────────────────────────
-   A floating widget is a fixed overlay on someone else's page, so we can't
-   use document-flow like a full-page chat. Instead the panel is sized to the
-   *visible* viewport via --pc-vh / --pc-vtop, which <pinecall-chat> drives
-   from window.visualViewport — so the input always clears the iOS keyboard
-   with no jump. Defaults (no JS / no keyboard) = full screen. */
+/* Mobile launcher: respect the safe-area when docked (closed state). */
 @media (max-width: 640px) {
-  .pc-panel {
-    top: var(--pc-vtop, 0px);
-    right: 0; bottom: auto; left: 0;
-    width: 100vw;
-    height: var(--pc-vh, 100dvh);
-    max-height: none;
-    border-radius: 0;
-  }
-  .pc-head { padding-top: max(14px, env(safe-area-inset-top)); }
-  /* 16px keeps iOS Safari from zooming the page when the input is focused. */
-  .pc-input { font-size: 16px; padding: 12px 16px; }
-  .pc-inputbar { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
-  .pc-mic, .pc-send, .pc-call { width: 44px; height: 44px; }
   .pc-fab {
     right: max(20px, env(safe-area-inset-right));
     bottom: max(20px, env(safe-area-inset-bottom));
   }
 }
+
+/* ── Mobile fullscreen takeover ([fs]) — document-flow, like /ask ──────
+   PinecallChat moves the host into <body> and sets [fs] on open (mobile only),
+   hiding the rest of the page. The host then IS a normal-flow full-page element
+   and the DOCUMENT scrolls — so iOS handles the keyboard natively (it lifts the
+   focused input above the keyboard with no jump), exactly like a dedicated
+   full-page chat. No position:fixed, no visualViewport JS. The composer is
+   sticky to the bottom, the header sticky to the top, messages flow between. */
+:host([fs]) { display: block; position: static; min-height: 100svh; min-height: 100dvh; }
+:host([fs]) .pc-screen { display: block; position: static; inset: auto; background: none; }
+:host([fs]) .pc-panel {
+  position: static; inset: auto;
+  width: 100%; height: auto;
+  min-height: 100svh; min-height: 100dvh;
+  max-height: none; border-radius: 0; transform: none; animation: none;
+}
+:host([fs]) .pc-msgs { overflow: visible; flex: 1 0 auto; }
+:host([fs]) .pc-head {
+  position: sticky; top: 0; z-index: 5;
+  padding-top: max(14px, env(safe-area-inset-top));
+  background: var(--pm-card-from);
+}
+:host([fs]) .pc-inputbar {
+  position: sticky; bottom: 0; z-index: 5;
+  background: var(--pm-card-to);
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+/* 16px keeps iOS Safari from zooming the page when the input is focused. */
+:host([fs]) .pc-input { font-size: 16px; padding: 12px 16px; }
+:host([fs]) .pc-mic, :host([fs]) .pc-send, :host([fs]) .pc-call { width: 44px; height: 44px; }
 `;
