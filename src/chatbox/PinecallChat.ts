@@ -29,8 +29,17 @@ import { ChatSession } from "../chat";
 import { PRESETS } from "../widget/presets";
 import type { VoiceWidgetTheme, VoiceWidgetPreset } from "../widget/types";
 import { CHATBOX_CSS } from "./styles";
+import { marked } from "marked";
 
 type TokenProvider = (channel: "chat" | "webrtc") => Promise<{ token: string; server: string }>;
+
+// Bot bubbles render markdown (same approach as the landing /ask + ChatView).
+marked.setOptions({ breaks: true, gfm: true });
+function renderMd(text: string): string {
+  const html = marked.parse(text || "", { async: false }) as string;
+  // strip <script> defensively (answers are model-generated)
+  return html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+}
 
 const THEME_VAR_MAP: Partial<Record<keyof VoiceWidgetTheme, string>> = {
   colorAccent: "--vw-color-accent",
@@ -332,6 +341,10 @@ export class PinecallChat extends HTMLElementBase {
     const text = this.input.value.trim();
     if (!text) return;
     const s = this.ensureSession();
+    // Don't accept input while the chat assistant is busy (streaming a reply or
+    // running a tool). The send would no-op server-side; bail before clearing
+    // the field so we don't silently eat the user's text.
+    if (this.mode !== "voice" && (s as ChatSession).getState().typing) return;
     if (this.status() !== "connected") { try { await s.connect(); } catch { /* surfaced via state */ } }
     if (this.mode === "voice") (s as VoiceSession).sendText(text);
     else (s as ChatSession).send(text);
@@ -425,10 +438,12 @@ export class PinecallChat extends HTMLElementBase {
       if (!this.greetEl) {
         this.greetEl = document.createElement("div");
         this.greetEl.className = "pc-msg bot";
-        this.greetEl.textContent = greetingText;
+        (this.greetEl as { _src?: string })._src = greetingText;
+        this.greetEl.innerHTML = renderMd(greetingText);
         this.msgsEl.prepend(this.greetEl);
-      } else if (this.greetEl.textContent !== greetingText) {
-        this.greetEl.textContent = greetingText;
+      } else if ((this.greetEl as { _src?: string })._src !== greetingText) {
+        (this.greetEl as { _src?: string })._src = greetingText;
+        this.greetEl.innerHTML = renderMd(greetingText);
       }
     }
 
@@ -461,7 +476,7 @@ export class PinecallChat extends HTMLElementBase {
         this.startReveal();
       } else {
         el._target = undefined;
-        if (el.textContent !== m.text) { el.textContent = m.text; if (m.id === lastId) lastChanged = true; }
+        if (this.setBubble(el, m.text, m.role) && m.id === lastId) lastChanged = true;
       }
     }
 
@@ -480,6 +495,20 @@ export class PinecallChat extends HTMLElementBase {
     if (added || lastChanged) this.msgsEl.scrollTop = this.msgsEl.scrollHeight;
   }
 
+  /** Set a bubble's content: markdown for bot replies, literal text otherwise. */
+  private setBubble(el: HTMLElement, text: string, role: string): boolean {
+    if (role === "bot") {
+      const html = renderMd(text);
+      if ((el as { _html?: string })._html === html) return false;
+      (el as { _html?: string })._html = html;
+      el.innerHTML = html;
+      return true;
+    }
+    if (el.textContent === text) return false;
+    el.textContent = text;
+    return true;
+  }
+
   /** rAF character-by-character reveal of the streaming bot message. */
   private startReveal() {
     if (this.revealRaf) return;
@@ -491,7 +520,7 @@ export class PinecallChat extends HTMLElementBase {
       if (shown < el._target.length) {
         const next = Math.min(shown + CHARS_PER_FRAME, el._target.length);
         el._shown = next;
-        el.textContent = el._target.slice(0, next);
+        el.innerHTML = renderMd(el._target.slice(0, next)); // streaming bubbles are always bot → markdown
         this.msgsEl.scrollTop = this.msgsEl.scrollHeight;
         this.revealRaf = requestAnimationFrame(tick);
       } else {

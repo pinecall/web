@@ -27,6 +27,28 @@ const INITIAL_STATE: VoiceSessionState = {
   idleWarning: null,
 };
 
+/**
+ * Merge a user transcript event into the CURRENT turn's user bubble — the last
+ * user message that has no bot reply after it — instead of appending a new one.
+ * STT emits several interim + final transcripts per turn (Deepgram Flux fires
+ * multiple `user.message` finals), so the old "find last interim" check appended
+ * a duplicate bubble for every extra final. A new turn starts only after a bot
+ * reply. Mirrors the dedup logic already used by ContactHub's SSE path.
+ */
+function mergeUserTurn(
+  prev: TranscriptMessage[],
+  text: string,
+  isInterim: boolean,
+): TranscriptMessage[] {
+  const lastUser = prev.findLastIndex((m) => m.role === "user");
+  const botAfter =
+    lastUser >= 0 && prev.slice(lastUser + 1).some((m) => m.role === "bot");
+  if (lastUser >= 0 && !botAfter) {
+    return prev.map((m, i) => (i === lastUser ? { ...m, text, isInterim } : m));
+  }
+  return [...prev, { id: Date.now(), role: "user", text, isInterim }];
+}
+
 export class VoiceSession extends EventTarget {
   private state: VoiceSessionState = { ...INITIAL_STATE };
   private listeners = new Set<() => void>();
@@ -289,50 +311,14 @@ export class VoiceSession extends EventTarget {
 
       case "user.speaking":
         if (d.text) {
-          this.setMessages((prev) => {
-            const idx = prev.findLastIndex(
-              (m) => m.role === "user" && m.isInterim,
-            );
-            if (idx >= 0) {
-              return prev.map((m, i) =>
-                i === idx ? { ...m, text: d.text } : m,
-              );
-            }
-            return [
-              ...prev,
-              {
-                id: Date.now(),
-                role: "user",
-                text: d.text,
-                isInterim: true,
-              },
-            ];
-          });
+          this.setMessages((prev) => mergeUserTurn(prev, d.text, true));
         }
         this.setState({ phase: "listening", userSpeaking: true });
         break;
 
       case "user.message":
         if (d.text) {
-          this.setMessages((prev) => {
-            const idx = prev.findLastIndex(
-              (m) => m.role === "user" && m.isInterim,
-            );
-            if (idx >= 0) {
-              return prev.map((m, i) =>
-                i === idx ? { ...m, text: d.text, isInterim: false } : m,
-              );
-            }
-            return [
-              ...prev,
-              {
-                id: Date.now(),
-                role: "user",
-                text: d.text,
-                isInterim: false,
-              },
-            ];
-          });
+          this.setMessages((prev) => mergeUserTurn(prev, d.text, false));
         }
         this.setState({ userSpeaking: false, phase: "thinking" });
         break;

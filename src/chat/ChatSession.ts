@@ -292,6 +292,13 @@ export class ChatSession extends EventTarget {
   send(text: string): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
+    // Block sending while the assistant is busy — either streaming a reply or
+    // running a tool. Sending mid-turn corrupts the server-side history
+    // (a user message slotted between an assistant{tool_calls} message and its
+    // tool results → provider 400 → broken chat). The UI also disables the
+    // input on `typing`, but this guards every caller (e.g. quick options).
+    if (this.state.typing) return;
+
     const trimmed = text.trim();
     if (!trimmed) return;
 
@@ -304,6 +311,12 @@ export class ChatSession extends EventTarget {
         text: trimmed,
       },
     ]);
+
+    // Flip to "busy" synchronously, the instant we send — don't wait for the
+    // server's first token/tool_call event. Otherwise there's a window where
+    // `typing` is still false and the user can fire a second message before the
+    // first turn has even started streaming. Cleared on chat.done/error.
+    this.setState({ typing: true });
 
     // Send to server
     this.ws.send(JSON.stringify({ event: "message", text: trimmed }));

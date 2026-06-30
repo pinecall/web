@@ -2,6 +2,28 @@
 
 All notable changes to `@pinecall/web` are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.10] - 2026-06-20
+
+### Fixed — chat: block sending while the assistant is busy (streaming or running a tool)
+
+Sending a message mid-turn — most visibly *while a tool call was running* —
+broke the chat: the new user message slotted between the assistant's
+`tool_calls` message and its tool results in the server-side history, which the
+LLM provider rejects with a 400. (Seen in `blossom-landing-app`, which embeds
+the widget.)
+
+- `ChatSession.send()` now no-ops while `state.typing` is true and flips
+  `typing` to `true` **synchronously** on send (instead of waiting for the
+  server's first token/tool_call event) — closing the window where the input
+  was briefly re-enabled between send and the first streamed event. This guards
+  every caller, including `VoiceWidget` quick options and `<pinecall-chat>`.
+- `<pinecall-chat>` (`PinecallChat.sendInput`) bails before clearing the field
+  when busy, so a blocked send no longer silently discards typed text.
+
+> Pairs with a server-side safety net: sdk-server now serializes chat turns so a
+> mid-turn message waits for the current turn (and all its tool rounds) instead
+> of running concurrently against shared history.
+
 ## [0.3.9] - 2026-06-19
 
 ### Changed — `<pinecall-chat>` mobile is now a true full-page chat (document-flow)

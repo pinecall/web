@@ -98,6 +98,25 @@ export const CHATBOX_CSS = /* css */ `
 .pc-msg.bot { align-self: flex-start; background: var(--pm-bot-bg); color: var(--pm-bot-text); border: 1px solid var(--pm-bot-border); border-bottom-left-radius: 5px; }
 .pc-msg.system { align-self: center; background: none; color: var(--pm-text-dim); font-size: 12px; }
 .pc-msg.interim, .pc-msg.streaming { opacity: .75; }
+
+/* Markdown inside bot bubbles (user bubbles stay literal text). */
+.pc-msg > :first-child { margin-top: 0; }
+.pc-msg > :last-child { margin-bottom: 0; }
+.pc-msg p { margin: 0 0 6px; }
+.pc-msg ul, .pc-msg ol { margin: 4px 0; padding-left: 18px; }
+.pc-msg li { margin: 2px 0; }
+.pc-msg a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.pc-msg strong { font-weight: 700; }
+.pc-msg em { font-style: italic; }
+.pc-msg h1, .pc-msg h2, .pc-msg h3 { font-size: 1.02em; font-weight: 700; margin: 7px 0 3px; line-height: 1.3; }
+.pc-msg code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88em;
+  background: rgba(0, 0, 0, .2); padding: .08em .36em; border-radius: 5px; }
+.pc-msg pre { background: rgba(0, 0, 0, .24); border-radius: 9px; padding: 9px 11px;
+  overflow-x: auto; margin: 6px 0; }
+.pc-msg pre code { background: none; padding: 0; font-size: .85em; line-height: 1.5; }
+.pc-msg blockquote { margin: 5px 0; padding-left: 9px; border-left: 2px solid currentColor; opacity: .8; }
+.pc-msg table { border-collapse: collapse; margin: 5px 0; font-size: .95em; }
+.pc-msg th, .pc-msg td { border: 1px solid var(--pm-divider); padding: 3px 7px; text-align: left; }
 .pc-typing { align-self: flex-start; display: inline-flex; gap: 4px; padding: 10px 12px; }
 .pc-typing span { width: 6px; height: 6px; border-radius: 999px; background: var(--pm-typing-dot); animation: pc-bounce .6s ease-in-out infinite; }
 .pc-typing span:nth-child(2) { animation-delay: .12s; }
