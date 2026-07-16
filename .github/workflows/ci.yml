@@ -13,10 +13,13 @@ jobs:
         node: [20, 22]
     steps:
       - uses: actions/checkout@v4
+      # this repo is pnpm (packageManager: pnpm@10.2.0, pnpm-lock.yaml) — npm ci
+      # cannot install it
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run build
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run build
