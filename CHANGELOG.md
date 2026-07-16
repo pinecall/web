@@ -93,6 +93,25 @@ text lands **in the input** (editable) — OpenAI-dictation style, *not* a call.
 > Requires sdk-server with the `/api/scribe` endpoint deployed and
 > `ELEVENLABS_API_KEY` set on the box.
 
+## [0.3.12] - 2026-06-20
+
+### Fixed — voice: one user bubble per turn (no duplicates)
+
+`mergeUserTurn` merges a user transcript into the **current** turn's bubble (the
+last user message with no bot reply after it) instead of appending a new one. STT
+emits several finals per turn — Deepgram Flux fires multiple `user.message`
+finals — and the old "find last interim" check stacked a duplicate bubble for
+every extra final. A new turn starts only once a bot reply lands. Mirrors the
+dedup logic ContactHub's SSE path already used.
+
+Completes the fix 0.3.11 started.
+
+## [0.3.11] - 2026-06-20
+
+### Fixed — voice: first cut of the duplicate-user-bubble fix
+
+Introduced `mergeUserTurn` (see 0.3.12, which completes it).
+
 ## [0.3.10] - 2026-06-20
 
 ### Fixed — chat: block sending while the assistant is busy (streaming or running a tool)
@@ -151,6 +170,20 @@ safe-area insets on header/input, and bigger touch targets.
 `position: var(--pc-position, fixed)`, so a host can set `--pc-position: absolute`
 to embed the widget inside a positioned container instead of floating it over the
 whole viewport (React wrappers expose the corresponding wiring).
+
+## [0.3.6] - 2026-06-18
+
+### Fixed — React wrappers: props set before the element connects
+
+`open` triggers `connectedCallback` → `ensureSession()` → `connect()`
+immediately, so object/function props (`tokenProvider`, `config`, `metadata`,
+`theme`) had to be set *before* the element entered the DOM — otherwise
+`ensureSession()` read `tokenProvider` as `undefined` and the connect failed.
+
+Both `<PinecallChat>` and `<PinecallModal>` React wrappers now set those props
+eagerly from a **callback ref** (which runs at attach time, before
+`connectedCallback`) and defer `open` to a `useLayoutEffect`, so the properties
+are guaranteed set first.
 
 ## [0.3.5] - 2026-06-17
 
@@ -219,6 +252,8 @@ CSS-only refinement. **No API changes** — same props, attributes, events, them
 - **`pinecall:transcript`** event is now dispatched by `<pinecall-modal>` and `<pinecall-chat>` too (previously only `<pinecall-orb>`).
 
 > Note: chat tool **execution** also required a fix in `@pinecall/sdk` (chat tool calls now auto-execute registered tools, like voice).
+
+## [0.3.0] - 2026-06-17
 
 ### Added — **`<pinecall-chat>` docked chatbox** (`@pinecall/web/chatbox` + `/chatbox/react`)
 
