@@ -87,6 +87,20 @@ export const CHATBOX_CSS = /* css */ `
 .pc-close { background: none; border: 0; color: var(--pm-text-dim); cursor: pointer; font-size: 20px; line-height: 1; padding: 4px; border-radius: 8px; }
 .pc-close:hover { color: var(--pm-text); background: var(--pm-btn-bg); }
 
+/* ── Header actions: new conversation + past conversations ── */
+.pc-hbtn { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; border: 0; cursor: pointer; background: transparent; color: var(--pm-text-dim); display: flex; align-items: center; justify-content: center; transition: background .15s, color .15s; }
+.pc-hbtn:hover { color: var(--pm-text); background: var(--pm-btn-bg); }
+.pc-hbtn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+.pc-histwrap { position: relative; flex: 0 0 auto; }
+.pc-histmenu { position: absolute; top: 36px; right: 0; min-width: 220px; max-width: 280px; max-height: 260px; overflow-y: auto; background: var(--pm-card-from); border: 1px solid var(--pm-divider); border-radius: 12px; box-shadow: var(--pm-panel-shadow); padding: 4px; z-index: 6; }
+.pc-histmenu[hidden] { display: none; }
+.pc-histrow { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; background: transparent; border: 0; color: var(--pm-text); padding: 8px 10px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 12.5px; }
+.pc-histrow:hover { background: var(--pm-btn-bg); }
+.pc-histrow.active { background: var(--pm-btn-bg); }
+.pc-histrow .t1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-histrow .t2 { color: var(--pm-text-dim); font-size: 10.5px; }
+.pc-histempty { padding: 10px 12px; color: var(--pm-text-dim); font-size: 12px; }
+
 /* ── Messages ── */
 .pc-msgs { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px; scrollbar-width: thin; scrollbar-color: var(--pm-scrollbar) transparent; }
 .pc-msgs::-webkit-scrollbar { width: 6px; }
@@ -98,6 +112,7 @@ export const CHATBOX_CSS = /* css */ `
 .pc-msg.bot { align-self: flex-start; background: var(--pm-bot-bg); color: var(--pm-bot-text); border: 1px solid var(--pm-bot-border); border-bottom-left-radius: 5px; }
 .pc-msg.system { align-self: center; background: none; color: var(--pm-text-dim); font-size: 12px; }
 .pc-msg.interim, .pc-msg.streaming { opacity: .75; }
+.pc-msg.hist { opacity: .82; }
 
 /* Markdown inside bot bubbles (user bubbles stay literal text). */
 .pc-msg > :first-child { margin-top: 0; }
@@ -124,18 +139,26 @@ export const CHATBOX_CSS = /* css */ `
 @keyframes pc-bounce { 0%,100% { transform: translateY(0); opacity: .3; } 50% { transform: translateY(-4px); opacity: 1; } }
 
 /* ── Input ── */
-.pc-inputbar { display: flex; align-items: center; gap: 8px; padding: 12px; border-top: 1px solid var(--pm-divider); }
-.pc-input { flex: 1; background: var(--pm-input-bg); border: 1px solid var(--pm-input-border); border-radius: 999px; padding: 11px 16px; color: var(--pm-text); font-size: 14px; outline: none; }
+.pc-inputbar { display: flex; align-items: flex-end; gap: 8px; padding: 12px; border-top: 1px solid var(--pm-divider); }
+.pc-input { flex: 1; background: var(--pm-input-bg); border: 1px solid var(--pm-input-border); border-radius: 21px; padding: 11px 16px; color: var(--pm-text); font-size: 14px; outline: none; resize: none; font-family: inherit; line-height: 1.4; max-height: 120px; overflow-y: auto; box-sizing: border-box; }
 .pc-input::placeholder { color: var(--pm-text-dim); }
-.pc-mic, .pc-send, .pc-call { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 999px; border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; background: var(--pm-btn-bg); color: var(--pm-text); transition: background .15s, transform .1s; }
-.pc-mic:hover, .pc-send:hover, .pc-call:hover { background: var(--pm-btn-bg-hover); }
-.pc-mic:active, .pc-send:active, .pc-call:active { transform: scale(.93); }
-.pc-mic svg, .pc-send svg, .pc-call svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 2; }
+.pc-mic, .pc-rec, .pc-send, .pc-call { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 999px; border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; background: var(--pm-btn-bg); color: var(--pm-text); transition: background .15s, transform .1s; }
+.pc-mic:hover, .pc-rec:hover, .pc-send:hover, .pc-call:hover { background: var(--pm-btn-bg-hover); }
+.pc-mic:active, .pc-rec:active, .pc-send:active, .pc-call:active { transform: scale(.93); }
+.pc-mic svg, .pc-rec svg, .pc-send svg, .pc-call svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 2; }
 .pc-send { background: var(--pm-send-bg); color: var(--pm-send-text); }
 .pc-mic.live { background: rgb(var(--vw-color-user-speaking)); color: #06301f; }
 .pc-mic.muted { background: rgb(var(--vw-color-speaking)); color: #3a0d0d; }
-.pc-mic[hidden], .pc-call[hidden] { display: none; }
+.pc-mic[hidden], .pc-rec[hidden], .pc-call[hidden] { display: none; }
 .pc-call.hangup { background: rgb(var(--vw-color-speaking)); color: #fff; }
+/* Voice-message record button — pulsing red while recording, spinner while transcribing. */
+.pc-rec.recording { background: rgb(var(--vw-color-speaking)); color: #fff; animation: pc-recpulse 1.3s ease-in-out infinite; }
+.pc-rec.recording svg { fill: currentColor; stroke: none; }
+.pc-rec.busy { cursor: default; }
+.pc-rec.busy svg { display: none; }
+.pc-rec.busy::after { content: ""; width: 16px; height: 16px; border-radius: 999px; border: 2px solid currentColor; border-top-color: transparent; animation: pc-spin .7s linear infinite; opacity: .8; }
+@keyframes pc-recpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(var(--vw-color-speaking), .55); } 50% { box-shadow: 0 0 0 6px rgba(var(--vw-color-speaking), 0); } }
+@keyframes pc-spin { to { transform: rotate(360deg); } }
 
 @media (prefers-reduced-motion: reduce) { .pc-msg, .pc-typing span { animation: none !important; } }
 

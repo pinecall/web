@@ -2,6 +2,97 @@
 
 All notable changes to `@pinecall/web` are documented here. Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.17] - 2026-07-02
+
+### Changed — conversation history moved SERVER-side (threads)
+
+History is no longer stored in `localStorage` (0.3.16 stored full messages
+client-side). Now the thread lives in the Pinecall platform:
+
+- `ChatSession` gained a **`thread`** option: the id rides the chat WS
+  (`?thread=`) — or, for backends that bind threads to their own users, sealed
+  **token metadata `threadId`** (takes precedence server-side, LumiCRM-style).
+- On connect the **server restores the thread**: prior turns seed the agent's
+  REAL LLM history (not a system-prompt blob) and come back over the WS as a
+  `chat.history` event → they land in `state.messages` flagged **`isHistory`**,
+  so every consumer (widget, React hook, custom UIs) re-renders them for free.
+- `<pinecall-chat>` keeps only a thread INDEX locally (ids/titles/dates +
+  current pointer); message content never touches browser storage. Same UI:
+  new-conversation (+), past conversations (clock), restore on refresh.
+- Requires sdk-server + playground with thread support deployed; without it the
+  chat simply starts fresh (graceful).
+
+## [0.3.16] - 2026-07-02
+
+### Added — `<pinecall-chat>`: conversation history (survives refresh)
+
+The conversation now **persists across page refreshes** and the header gained
+two actions: **new conversation** (+) and **past conversations** (clock menu).
+
+- Messages are saved per-thread in `localStorage`, keyed by agent
+  (`pc-chat:<agent>`); the current thread restores on open with its bubbles
+  rendered as frozen history and the transcript injected as context
+  (`setContext("conversation", …)`) so the agent **continues where it left
+  off** — same mechanism the text↔voice switch already used.
+- "New conversation" starts a fresh thread; the clock menu lists the last 10
+  threads (title = first user message, date) and reopens any of them.
+- Greeting-only threads aren't saved; restored threads don't re-greet.
+- Caps: 10 threads × 80 messages. Opt out entirely with the `no-history`
+  attribute (also the automatic fallback when `localStorage` is unavailable).
+
+## [0.3.15] - 2026-07-01
+
+### Fixed — `<pinecall-chat>` composer: auto-height + send cuts the recording
+
+- The composer is now an **auto-growing textarea** (was a single-line `<input>`):
+  it grows with the content up to ~5 lines and keeps the end visible while the
+  live transcription streams in — no more text disappearing off to the right.
+  Enter sends; Shift+Enter inserts a newline.
+- **Sending while dictating stops the recording**: the send button (or Enter)
+  cancels the live scribe immediately and sends what already streamed into the
+  input, instead of leaving the mic running.
+
+## [0.3.14] - 2026-07-01
+
+### Added — real-time (streaming) dictation + `LiveScribe`
+
+Voice messages now transcribe **live as you speak** instead of after you stop.
+
+- New **`LiveScribe`** client, exported at **`@pinecall/web/scribe`** — captures
+  the mic, streams PCM16 @ 16 kHz to the server's streaming scribe gateway
+  (`/api/scribe/ws`, ElevenLabs `scribe_v2_realtime`), and emits partial/final
+  transcripts via `onText`/`onFinal`. Reusable by any app (LumiCRM's internal
+  chat uses it too).
+- **Multi-language**: auto-detected by default (Scribe v2 realtime handles 90+
+  languages *and* mid-utterance code-switching). Pin one with the `language`
+  option / `<pinecall-chat language="es">` attribute for best accuracy.
+- `<pinecall-chat>`'s record button now streams the transcript into the input in
+  real time (was: record → stop → batch transcribe in 0.3.13). Authorized with
+  the same chat `tokenProvider` token — no API key in the browser.
+
+> The batch endpoint (`POST /api/scribe`) remains for one-shot use. Requires
+> sdk-server with the `/api/scribe/ws` endpoint deployed.
+
+## [0.3.13] - 2026-07-01
+
+### Added — `<pinecall-chat>`: WhatsApp-style voice messages (dictation)
+
+The chat composer now has a **record button** next to send (text mode only). Tap
+to record a voice message, tap again to stop; the clip is transcribed by the
+server "scribe" gateway (`POST /api/scribe`, ElevenLabs batch Scribe) and the
+text lands **in the input** (editable) — OpenAI-dictation style, *not* a call.
+
+- Reuses the widget's chat `tokenProvider` to authorize the upload, so the raw
+  Pinecall API key never reaches the browser (same signed `cht_` token the chat
+  WebSocket uses).
+- Picks a `MediaRecorder` mime the browser supports (webm/opus → mp4/ogg on
+  Safari). Multiple dictations append to the current input.
+- On by default; opt out with the `no-voice-message` attribute. Recording stops
+  automatically when the chat closes/unmounts.
+
+> Requires sdk-server with the `/api/scribe` endpoint deployed and
+> `ELEVENLABS_API_KEY` set on the box.
+
 ## [0.3.10] - 2026-06-20
 
 ### Fixed — chat: block sending while the assistant is busy (streaming or running a tool)

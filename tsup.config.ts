@@ -12,6 +12,7 @@ export default defineConfig({
     "modal/react": "src/modal/react.tsx", // @pinecall/web/modal/react — React <CallModal>
     "chatbox/index": "src/chatbox/index.ts", // @pinecall/web/chatbox — <pinecall-chat> chatbox
     "chatbox/react": "src/chatbox/react.tsx", // @pinecall/web/chatbox/react — React <ChatBox>
+    "scribe/index": "src/scribe/index.ts", // @pinecall/web/scribe — LiveScribe streaming dictation
   },
   format: ["esm", "cjs"],
   dts: true,

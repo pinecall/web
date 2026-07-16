@@ -16,6 +16,8 @@ export interface ChatMessage {
   isStreaming?: boolean;
   /** Tool call ID (for `system` tool-indicator messages). */
   toolCallId?: string;
+  /** True for messages restored from a prior session (thread history). */
+  isHistory?: boolean;
 }
 
 /** Full state of a ChatSession (immutable snapshots). */
@@ -59,6 +61,15 @@ export interface ChatSessionOptions {
    * ```
    */
   tokenProvider?: () => Promise<{ token: string; server: string }>;
+
+  /**
+   * Conversation thread id. When set, the server restores the thread's prior
+   * messages on connect (seeding the agent's memory AND emitting a
+   * `chat.history` event with the messages, which land in `state.messages`
+   * flagged `isHistory`), and persists this session under the same thread.
+   * Sealed token metadata (`metadata.threadId`) takes precedence server-side.
+   */
+  thread?: string;
 }
 
 /** Events emitted by ChatSession via EventTarget. */

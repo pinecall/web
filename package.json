@@ -1,6 +1,6 @@
 {
   "name": "@pinecall/web",
-  "version": "0.3.12",
+  "version": "0.3.17",
   "description": "Pinecall web client — WebRTC voice, text chat, and React widgets for Pinecall agents",
   "license": "MIT",
   "type": "module",
@@ -106,6 +106,16 @@
       "require": {
         "types": "./dist/chatbox/react.d.cts",
         "default": "./dist/chatbox/react.cjs"
+      }
+    },
+    "./scribe": {
+      "import": {
+        "types": "./dist/scribe/index.d.ts",
+        "default": "./dist/scribe/index.js"
+      },
+      "require": {
+        "types": "./dist/scribe/index.d.cts",
+        "default": "./dist/scribe/index.cjs"
       }
     },
     "./package.json": "./package.json"

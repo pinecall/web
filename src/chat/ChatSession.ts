@@ -123,8 +123,9 @@ export class ChatSession extends EventTarget {
         .replace(/^http:/, "ws:")
         .replace(/^https:/, "wss:");
 
-      // 2. Open WebSocket
-      const ws = new WebSocket(`${wsBase}/chat/ws?token=${token}`);
+      // 2. Open WebSocket (thread → server-side conversation restore)
+      const threadQs = this.opts.thread ? `&thread=${encodeURIComponent(this.opts.thread)}` : "";
+      const ws = new WebSocket(`${wsBase}/chat/ws?token=${token}${threadQs}`);
       this.ws = ws;
 
       ws.onopen = () => {
@@ -168,6 +169,27 @@ export class ChatSession extends EventTarget {
           sessionId: d.session_id ?? null,
         });
         break;
+
+      case "chat.history": {
+        // Prior messages of this thread (server-side restore). Prepend them
+        // once, flagged isHistory so UIs can style/dedupe them.
+        const prior = (d.messages ?? []) as Array<{ role: string; text: string }>;
+        if (prior.length) {
+          this.setMessages((prev) => {
+            if (prev.some((m) => m.isHistory)) return prev; // reconnect — already restored
+            const restored = prior
+              .filter((m) => m.text)
+              .map((m) => ({
+                id: ++this.msgCounter,
+                role: (m.role === "user" ? "user" : "bot") as "user" | "bot",
+                text: m.text,
+                isHistory: true,
+              }));
+            return [...restored, ...prev];
+          });
+        }
+        break;
+      }
 
       case "chat.token":
       case "llm.chat.token":

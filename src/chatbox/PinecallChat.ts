@@ -26,6 +26,7 @@
  */
 import { VoiceSession } from "../core";
 import { ChatSession } from "../chat";
+import { LiveScribe } from "../scribe";
 import { PRESETS } from "../widget/presets";
 import type { VoiceWidgetTheme, VoiceWidgetPreset } from "../widget/types";
 import { CHATBOX_CSS } from "./styles";
@@ -54,11 +55,26 @@ const ICONS = {
   send: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
   phone: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.69 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.33 1.85.56 2.81.69A2 2 0 0 1 22 16.92z"/></svg>',
   hangup: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.69 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.33 1.85.56 2.81.69A2 2 0 0 1 22 16.92z" transform="rotate(135 12 12)"/></svg>',
+  // solid square — shown while recording a voice message ("tap to stop")
+  stop: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+  history: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   close: "✕",
 };
 
-interface Msg { id: number; role: string; text: string; isInterim?: boolean; isStreaming?: boolean; speaking?: boolean; interrupted?: boolean; }
+interface Msg { id: number; role: string; text: string; isInterim?: boolean; isStreaming?: boolean; speaking?: boolean; interrupted?: boolean; isHistory?: boolean; }
+/** Local thread INDEX entry — titles/dates only; messages live server-side. */
+interface StoredThread { id: string; title: string; at: number }
 type AnySession = VoiceSession | ChatSession;
+
+const MAX_THREADS = 10;
+
+function genThreadId(): string {
+  try {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  } catch { /* ignore */ }
+  return `t-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 const HTMLElementBase: typeof HTMLElement =
   typeof HTMLElement !== "undefined" ? HTMLElement : (class {} as unknown as typeof HTMLElement);
@@ -89,9 +105,23 @@ export class PinecallChat extends HTMLElementBase {
   private screen!: HTMLDivElement;
   private panel!: HTMLDivElement;
   private msgsEl!: HTMLDivElement;
-  private input!: HTMLInputElement;
+  private input!: HTMLTextAreaElement;
   private micBtn!: HTMLButtonElement;
+  private recBtn!: HTMLButtonElement;
   private callBtn!: HTMLButtonElement;
+
+  // Voice-message (WhatsApp/OpenAI-style dictation) — real-time via LiveScribe.
+  private scribe: LiveScribe | null = null;
+  private recBase = "";
+  private recState: "idle" | "recording" | "transcribing" = "idle";
+
+  // Conversation threads — SERVER-side history (restored over the chat WS via
+  // chat.history); localStorage keeps only the thread index (ids/titles/dates)
+  // and the current pointer. Opt out with `no-history`.
+  private threadId = "";
+  private saveTimer = 0;
+  private histMenu!: HTMLDivElement;
+  private onDocClick: ((e: MouseEvent) => void) | null = null;
   private nameEl!: HTMLDivElement;
   private stateEl!: HTMLDivElement;
   private avatarEl!: HTMLDivElement;
@@ -109,13 +139,19 @@ export class PinecallChat extends HTMLElementBase {
         <div class="pc-head">
           <div class="pc-avatar">${ICONS.chat}</div>
           <div class="pc-id"><div class="pc-name">Agent</div><div class="pc-state"><span class="dot"></span><span class="lbl">Offline</span></div></div>
+          <button class="pc-hbtn pc-new" aria-label="New conversation" title="New conversation">${ICONS.plus}</button>
+          <div class="pc-histwrap">
+            <button class="pc-hbtn pc-hist" aria-label="Past conversations" title="Past conversations">${ICONS.history}</button>
+            <div class="pc-histmenu" hidden></div>
+          </div>
           <button class="pc-close" aria-label="Close">${ICONS.close}</button>
         </div>
         <div class="pc-msgs"></div>
         <div class="pc-inputbar">
           <button class="pc-call" aria-label="Start call">${ICONS.phone}</button>
           <button class="pc-mic" aria-label="Mute" hidden>${ICONS.mic}</button>
-          <input class="pc-input" type="text" placeholder="Type a message…" />
+          <textarea class="pc-input" rows="1" placeholder="Type a message…"></textarea>
+          <button class="pc-rec" aria-label="Record voice message">${ICONS.mic}</button>
           <button class="pc-send" aria-label="Send">${ICONS.send}</button>
         </div>
       </div>
@@ -128,6 +164,7 @@ export class PinecallChat extends HTMLElementBase {
     this.msgsEl = c.querySelector(".pc-msgs")!;
     this.input = c.querySelector(".pc-input")!;
     this.micBtn = c.querySelector(".pc-mic")!;
+    this.recBtn = c.querySelector(".pc-rec")!;
     this.callBtn = c.querySelector(".pc-call")!;
     this.nameEl = c.querySelector(".pc-name")!;
     this.stateEl = c.querySelector(".pc-state")!;
@@ -137,10 +174,15 @@ export class PinecallChat extends HTMLElementBase {
     c.querySelector(".pc-close")!.addEventListener("click", () => this.close());
     c.querySelector(".pc-send")!.addEventListener("click", () => this.sendInput());
     this.input.addEventListener("keydown", (e: KeyboardEvent) => {
-      if (e.key === "Enter") { e.preventDefault(); this.sendInput(); }
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); this.sendInput(); }
     });
+    this.input.addEventListener("input", () => this.autoGrow());
     this.micBtn.addEventListener("click", () => this.onMic());
+    this.recBtn.addEventListener("click", () => this.toggleRecord());
     this.callBtn.addEventListener("click", () => this.toggleCall());
+    this.histMenu = c.querySelector(".pc-histmenu")!;
+    c.querySelector(".pc-new")!.addEventListener("click", () => this.newConversation());
+    c.querySelector(".pc-hist")!.addEventListener("click", (e) => { e.stopPropagation(); this.toggleHistMenu(); });
   }
 
   // ── properties ──
@@ -177,13 +219,15 @@ export class PinecallChat extends HTMLElementBase {
     this.enterFullscreen();
     // text-first unless auto-call → start directly in a voice call
     this.mode = this.hasAttribute("auto-call") ? "voice" : "text";
+    this.restoreHistory();
     const s = this.ensureSession();
-    if (this.status() === "idle") void s.connect();
+    if (this.status() === "idle") void s.connect().catch(() => { /* surfaced via state */ });
     this.input.focus();
     this.render();
     this.dispatchEvent(new CustomEvent("pinecall:open"));
   }
   close() {
+    this.hideHistMenu();
     this.screen.classList.remove("open");
     this.panel.classList.remove("open");
     this.fab.hidden = this.hasAttribute("no-fab");
@@ -215,12 +259,15 @@ export class PinecallChat extends HTMLElementBase {
       this.session = new ChatSession({
         agent, server,
         tokenProvider: tp ? () => tp("chat") : undefined,
+        thread: this.historyEnabled() ? this.threadId || undefined : undefined,
       });
     }
     this.unsub = this.session.subscribe(() => this.onState());
     return this.session;
   }
   private teardown() {
+    if (this.scribe) { this.scribe.cancel(); this.scribe = null; this.setRecState("idle"); }
+    if (this.historyEnabled()) { clearTimeout(this.saveTimer); this.persistNow(); }
     this.unsub?.(); this.unsub = null;
     this.session?.destroy(); this.session = null;
     this.prevStatus = undefined;
@@ -288,9 +335,9 @@ export class PinecallChat extends HTMLElementBase {
     // Carry the conversation across the text↔voice switch. The two transports
     // are separate server sessions, so we (1) keep the visible bubbles as frozen
     // history and (2) inject the prior transcript as context into the new
-    // session so the agent continues where it left off.
-    const prev = ((this.session?.getState() as { messages?: Msg[] })?.messages ?? [])
-      .filter((m) => (m.role === "user" || m.role === "bot") && m.text)
+    // session so the agent continues where it left off. Includes any messages
+    // restored from server-side thread history (isHistory) plus the live session.
+    const prev = this.collectMsgs()
       .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.text}`);
     if (this.greetEl?.textContent) prev.unshift(`Assistant: ${this.greetEl.textContent}`);
     const transcript = prev.join("\n");
@@ -337,7 +384,207 @@ export class PinecallChat extends HTMLElementBase {
     else await s.connect();
   }
 
+  // ── Voice message (WhatsApp/OpenAI-style dictation) ───────────────────
+  // Tap to record → the server "scribe" streams the transcription live into the
+  // input as you speak → tap again to stop. NOT a call; the text is editable.
+
+  private toggleRecord() {
+    if (this.recState === "recording") void this.stopRecording();
+    else if (this.recState === "idle") void this.startRecording();
+  }
+
+  private setRecState(s: "idle" | "recording" | "transcribing") {
+    this.recState = s;
+    this.recBtn.classList.toggle("recording", s === "recording");
+    this.recBtn.classList.toggle("busy", s === "transcribing");
+    this.recBtn.disabled = s === "transcribing";
+    this.recBtn.innerHTML = s === "recording" ? ICONS.stop : ICONS.mic;
+    this.recBtn.setAttribute(
+      "aria-label",
+      s === "recording" ? "Stop recording" : s === "transcribing" ? "Transcribing…" : "Record voice message",
+    );
+  }
+
+  /** Auto-height: grow the composer with its content (capped), keep the end visible. */
+  private autoGrow() {
+    const el = this.input;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  /** Live transcript → input: base text (pre-recording) + streamed transcript. */
+  private applyScribeText(t: string) {
+    this.input.value = this.recBase && t ? `${this.recBase} ${t}` : (t || this.recBase);
+    this.autoGrow();
+    this.input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  private async startRecording() {
+    this.recBase = this.input.value.trim();
+    const tp = this._tokenProvider;
+    const scribe = new LiveScribe({
+      server: this.getAttribute("server") || undefined,
+      language: (this._config?.language as string) || this.getAttribute("language") || undefined,
+      tokenProvider: tp ? () => tp("chat") : undefined,
+      onText: (t) => this.applyScribeText(t),
+      onStateChange: (s) => {
+        if (s === "connecting" || s === "finishing") this.setRecState("transcribing");
+        else if (s === "recording") this.setRecState("recording");
+      },
+      onError: () => { this.scribe = null; this.setRecState("idle"); },
+    });
+    this.scribe = scribe;
+    this.setRecState("transcribing");
+    try {
+      await scribe.start();
+    } catch {
+      this.scribe = null;
+      this.setRecState("idle");
+    }
+  }
+
+  private async stopRecording() {
+    const s = this.scribe;
+    if (!s) { this.setRecState("idle"); return; }
+    this.setRecState("transcribing");
+    try {
+      const text = await s.stop();
+      this.applyScribeText(text);
+      this.input.focus();
+    } catch { /* keep whatever streamed so far */ }
+    this.scribe = null;
+    this.setRecState("idle");
+  }
+
+  // ── Conversation threads (server-side history) ────────────────────────
+  // The conversation survives a page refresh: the widget passes `thread` to
+  // ChatSession, the SERVER restores the thread's prior messages on connect
+  // (seeding the agent's real LLM memory AND emitting chat.history → the
+  // bubbles land in state flagged isHistory). localStorage keeps only the
+  // thread INDEX (ids/titles/dates) + current pointer — messages never touch
+  // the browser storage.
+
+  private historyEnabled(): boolean {
+    if (this.hasAttribute("no-history")) return false;
+    try { return typeof localStorage !== "undefined"; } catch { return false; }
+  }
+  private storeKey() { return `pc-chat:${this.getAttribute("agent") || "default"}`; }
+  private loadThreads(): StoredThread[] {
+    try {
+      const ts = JSON.parse(localStorage.getItem(this.storeKey()) || "[]") as StoredThread[];
+      return ts.map((t) => ({ id: t.id, title: t.title, at: t.at })); // drop legacy msgs field
+    } catch { return []; }
+  }
+  private saveThreads(ts: StoredThread[]) {
+    try { localStorage.setItem(this.storeKey(), JSON.stringify(ts)); } catch { /* quota */ }
+  }
+
+  /** user/bot messages currently in state (final text only, incl. restored). */
+  private collectMsgs(): { role: string; text: string }[] {
+    const st = this.session?.getState() as { messages?: Msg[] } | undefined;
+    return (st?.messages ?? [])
+      .filter((m) => (m.role === "user" || m.role === "bot") && m.text && !m.isInterim)
+      .map((m) => ({ role: m.role, text: m.text }));
+  }
+
+  /** Update the local thread index (title = first user message, at = now). */
+  private persistNow() {
+    if (!this.historyEnabled() || !this.threadId) return;
+    const st = this.session?.getState() as { messages?: Msg[] } | undefined;
+    const msgs = st?.messages ?? [];
+    if (!msgs.some((m) => m.role === "user" && !m.isHistory)) return; // no new activity
+    const title = (msgs.find((m) => m.role === "user")?.text || "Conversation").slice(0, 60);
+    const threads = this.loadThreads().filter((t) => t.id !== this.threadId);
+    threads.unshift({ id: this.threadId, title, at: Date.now() });
+    this.saveThreads(threads.slice(0, MAX_THREADS));
+  }
+  private schedulePersist() {
+    if (!this.historyEnabled()) return;
+    clearTimeout(this.saveTimer);
+    this.saveTimer = window.setTimeout(() => this.persistNow(), 600);
+  }
+
+  /** On open: adopt the stored current thread id (server restores its messages). */
+  private restoreHistory() {
+    if (!this.historyEnabled() || this.threadId) return;
+    try {
+      this.threadId = localStorage.getItem(`${this.storeKey()}:current`) || genThreadId();
+      localStorage.setItem(`${this.storeKey()}:current`, this.threadId);
+    } catch { this.threadId = genThreadId(); }
+  }
+
+  /** Reset the panel to an empty thread (keeps the session torn down). */
+  private resetThreadUi() {
+    this.teardown(); // persists the current thread index first
+    if (this.revealRaf) cancelAnimationFrame(this.revealRaf);
+    this.revealRaf = 0; this.streamEl = null;
+    this.msgEls.clear();
+    this.msgsEl.innerHTML = "";
+    this.greetEl = null;
+    this.mode = "text";
+  }
+
+  private newConversation() {
+    this.hideHistMenu();
+    this.resetThreadUi();
+    this.threadId = genThreadId();
+    try { localStorage.setItem(`${this.storeKey()}:current`, this.threadId); } catch { /* noop */ }
+    const s = this.ensureSession();
+    void s.connect().catch(() => { /* surfaced via state */ });
+    this.render();
+  }
+
+  private openThread(id: string) {
+    this.hideHistMenu();
+    if (id === this.threadId) return;
+    this.resetThreadUi();
+    this.threadId = id;
+    try { localStorage.setItem(`${this.storeKey()}:current`, id); } catch { /* noop */ }
+    const s = this.ensureSession();
+    void s.connect().catch(() => { /* surfaced via state */ });
+    this.render();
+  }
+
+  private toggleHistMenu() {
+    if (!this.histMenu.hidden) { this.hideHistMenu(); return; }
+    this.histMenu.innerHTML = "";
+    const threads = this.historyEnabled() ? this.loadThreads() : [];
+    if (!threads.length) {
+      const empty = document.createElement("div");
+      empty.className = "pc-histempty";
+      empty.textContent = "No past conversations";
+      this.histMenu.appendChild(empty);
+    }
+    for (const t of threads) {
+      const row = document.createElement("button");
+      row.className = `pc-histrow${t.id === this.threadId ? " active" : ""}`;
+      const t1 = document.createElement("span");
+      t1.className = "t1";
+      t1.textContent = t.title || "Conversation";
+      const t2 = document.createElement("span");
+      t2.className = "t2";
+      const d = new Date(t.at);
+      t2.textContent = d.toDateString() === new Date().toDateString()
+        ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : d.toLocaleDateString([], { day: "2-digit", month: "short" });
+      row.append(t1, t2);
+      row.addEventListener("click", () => this.openThread(t.id));
+      this.histMenu.appendChild(row);
+    }
+    this.histMenu.hidden = false;
+    this.onDocClick = () => this.hideHistMenu();
+    document.addEventListener("click", this.onDocClick, { once: true });
+  }
+  private hideHistMenu() {
+    this.histMenu.hidden = true;
+    if (this.onDocClick) { document.removeEventListener("click", this.onDocClick); this.onDocClick = null; }
+  }
+
   private async sendInput() {
+    // Sending while dictating = "I'm done": cut the recording immediately and
+    // send what already streamed in (don't wait for the final commit).
+    if (this.scribe) { this.scribe.cancel(); this.scribe = null; this.setRecState("idle"); }
     const text = this.input.value.trim();
     if (!text) return;
     const s = this.ensureSession();
@@ -349,6 +596,7 @@ export class PinecallChat extends HTMLElementBase {
     if (this.mode === "voice") (s as VoiceSession).sendText(text);
     else (s as ChatSession).send(text);
     this.input.value = "";
+    this.autoGrow();
   }
 
   private onState() {
@@ -357,7 +605,10 @@ export class PinecallChat extends HTMLElementBase {
       this.dispatchEvent(new CustomEvent("pinecall:status", { detail: st.status }));
       this.prevStatus = st.status;
     }
-    if (st?.messages) this.dispatchEvent(new CustomEvent("pinecall:transcript", { detail: st.messages }));
+    if (st?.messages) {
+      this.dispatchEvent(new CustomEvent("pinecall:transcript", { detail: st.messages }));
+      this.schedulePersist();
+    }
     this.render();
   }
 
@@ -412,13 +663,16 @@ export class PinecallChat extends HTMLElementBase {
       this.callBtn.setAttribute("aria-label", inCall ? "End call" : "Start call");
     }
 
-    // mic button — only during a voice call
+    // mic button — only during a voice call (call-mute control)
     this.micBtn.hidden = !voice;
     if (voice) {
       this.micBtn.classList.toggle("live", connected && !st?.isMuted);
       this.micBtn.classList.toggle("muted", connected && !!st?.isMuted);
       this.micBtn.innerHTML = st?.isMuted ? ICONS.micOff : ICONS.mic;
     }
+
+    // voice-message record button — only in text mode (opt out with `no-voice-message`)
+    this.recBtn.hidden = voice || this.hasAttribute("no-voice-message");
 
     this.renderMessages(st, voice, connected);
   }
@@ -430,9 +684,11 @@ export class PinecallChat extends HTMLElementBase {
   ) {
     const messages = (st?.messages ?? []).filter((m) => m.role === "system" || m.text || m.isInterim);
     const typing = voice ? st?.phase === "thinking" : !!st?.typing;
+    const hasHistory = messages.some((m) => m.isHistory);
 
     // Client-side greeting bubble (text chat has no server say→client path).
-    const greetingText = !voice ? this.getAttribute("greeting") : null;
+    // Skipped when a past conversation was restored — don't re-greet mid-thread.
+    const greetingText = !voice && !hasHistory ? this.getAttribute("greeting") : null;
     if (!greetingText && this.greetEl) { this.greetEl.remove(); this.greetEl = null; }
     else if (greetingText) {
       if (!this.greetEl) {
@@ -465,7 +721,7 @@ export class PinecallChat extends HTMLElementBase {
       let el = this.msgEls.get(m.id) as (HTMLDivElement & { _target?: string; _shown?: number }) | undefined;
       if (!el) { el = document.createElement("div"); this.msgsEl.appendChild(el); this.msgEls.set(m.id, el); added = true; }
       const streaming = !!(m.isStreaming || m.speaking) && !!m.text;
-      const cls = ["pc-msg", m.role, m.isInterim ? "interim" : "", streaming ? "streaming" : "", m.interrupted ? "interrupted" : ""]
+      const cls = ["pc-msg", m.role, m.isHistory ? "hist" : "", m.isInterim ? "interim" : "", streaming ? "streaming" : "", m.interrupted ? "interrupted" : ""]
         .filter(Boolean).join(" ");
       if (el.className !== cls) el.className = cls;
 
@@ -478,6 +734,17 @@ export class PinecallChat extends HTMLElementBase {
         el._target = undefined;
         if (this.setBubble(el, m.text, m.role) && m.id === lastId) lastChanged = true;
       }
+    }
+
+    // Divider between restored history and the live conversation.
+    if (hasHistory && !this.msgsEl.querySelector(".pc-histsep")) {
+      const sep = document.createElement("div");
+      sep.className = "pc-msg system pc-histsep";
+      sep.textContent = "— earlier —";
+      const firstLive = messages.find((m) => !m.isHistory);
+      const anchor = firstLive ? this.msgEls.get(firstLive.id) : null;
+      if (anchor) this.msgsEl.insertBefore(sep, anchor);
+      else this.msgsEl.appendChild(sep);
     }
 
     let dots = this.msgsEl.querySelector<HTMLDivElement>(".pc-typing");
